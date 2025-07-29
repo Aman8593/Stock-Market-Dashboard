@@ -1,0 +1,39 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body,
+html {
+  width: 100%;
+}
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+nav {
+  background-color: #1f2937; /* Tailwind's gray-800 */
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2rem;
+  width: 100vw; /* Full viewport width */
+  position: relative;
+  z-index: 10;
+}
+
+nav a {
+  color: #f9fafb; /* Tailwind's gray-100 */
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: color 0.3s ease;
+}
+
+nav a:hover {
+  color: #3b82f6; /* Tailwind's blue-500 */
+}
