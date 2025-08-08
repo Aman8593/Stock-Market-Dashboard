@@ -288,49 +288,95 @@ erDiagram
     }
 ```
 
-### Database Schema
+### Current Database Schema (MongoDB)
+
+**Users Collection**
+
+```javascript
+{
+  _id: ObjectId,
+  google_id: String,
+  name: String,
+  email: String,
+  picture: String,
+  mobile: String,
+  profession: String,
+  location: String,
+  interests: [String],
+  profile_completed: Boolean,
+  created_at: Date,
+  updated_at: Date
+}
+```
+
+### Data Processing Architecture
+
+**Current Implementation (In-Memory)**
+
+- **Stock Analysis**: Processed on-demand via FastAPI, no persistence
+- **Market Signals**: Cached in-memory for 24 hours, refreshed automatically
+- **Technical Indicators**: Calculated real-time using yfinance data
+- **Sentiment Analysis**: Real-time processing via HuggingFace API
+- **Options Data**: Fetched and calculated on-demand from Yahoo Finance
+
+**Benefits of Current Approach:**
+
+- Fast response times (no database queries for analysis)
+- Real-time data (always fresh from external APIs)
+- Simplified architecture (fewer moving parts)
+- Cost-effective (no database storage costs for analysis data)
+
+### Future Database Schema (PostgreSQL - Planned)
 
 **Users Table**
 
 ```sql
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    google_id VARCHAR(255) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     picture TEXT,
+    mobile VARCHAR(20),
+    profession VARCHAR(100),
+    location VARCHAR(100),
+    interests JSONB,
+    profile_completed BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP,
-    is_active BOOLEAN DEFAULT true
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-**Stocks Table**
+**Analysis History Table (Future Enhancement)**
 
 ```sql
-CREATE TABLE stocks (
-    symbol VARCHAR(20) PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    market VARCHAR(10) NOT NULL, -- 'US' or 'INDIA'
-    sector VARCHAR(100),
-    active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-**Analysis Table**
-
-```sql
-CREATE TABLE analysis (
+CREATE TABLE analysis_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
-    symbol VARCHAR(20) REFERENCES stocks(symbol),
-    result JSONB NOT NULL,
-    confidence DECIMAL(5,2),
+    symbol VARCHAR(20) NOT NULL,
+    analysis_result JSONB NOT NULL,
     signal VARCHAR(20),
+    confidence DECIMAL(5,2),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_analysis_user_symbol (user_id, symbol),
     INDEX idx_analysis_created_at (created_at)
+);
+```
+
+**Market Signals Cache (Future Enhancement)**
+
+```sql
+CREATE TABLE market_signals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    market VARCHAR(10) NOT NULL, -- 'US' or 'INDIA'
+    signal_type VARCHAR(20) NOT NULL, -- 'BUY' or 'SELL'
+    signals_data JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+
+    INDEX idx_signals_market_type (market, signal_type),
+    INDEX idx_signals_expires (expires_at)
 );
 ```
 

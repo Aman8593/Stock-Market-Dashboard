@@ -18,9 +18,11 @@ Stock Sage is a comprehensive financial analysis platform that combines:
 
 - **Frontend**: React 19 + Vite + Material-UI
 - **Backend**: FastAPI + Python
-- **Database**: MongoDB (with fallback to in-memory storage)
+- **Database**: MongoDB (user authentication data only)
+- **Data Processing**: In-memory processing via FastAPI (stock data, analysis, signals)
 - **Authentication**: Google OAuth
 - **AI/ML**: HuggingFace FinBERT for sentiment analysis
+- **Future**: PostgreSQL planned for enhanced data persistence
 
 ## Key Components
 

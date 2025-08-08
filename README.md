@@ -44,7 +44,8 @@ npm run dev
 
 - **Frontend**: React 19 + Material-UI + Vite
 - **Backend**: FastAPI + Python + AI/ML libraries
-- **Database**: MongoDB
+- **Database**: MongoDB (user data only)
+- **Data Processing**: In-memory via FastAPI (stock analysis, signals)
 - **Authentication**: Google OAuth
 
 ## 🤝 Contributing
