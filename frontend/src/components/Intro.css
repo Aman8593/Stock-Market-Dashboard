@@ -1,0 +1,738 @@
+/* Stock Sage Intro Page Specific Styles */
+
+/* Reset only for intro page */
+.stock-sage-intro * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.stock-sage-intro {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", sans-serif;
+  line-height: 1.6;
+  color: #ffffff;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
+  position: relative;
+}
+
+/* Navbar Styles */
+.stock-sage-navbar {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding: 0 20px;
+}
+
+.stock-sage-navbar-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+  gap: 32px;
+}
+
+.stock-sage-navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stock-sage-navbar-logo svg {
+  width: 32px;
+  height: 32px;
+  color: #60a5fa;
+}
+
+.stock-sage-navbar-logo span {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.stock-sage-navbar-menu {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.stock-sage-navbar-menu a {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.stock-sage-navbar-menu a:hover {
+  color: #ffffff;
+}
+
+.stock-sage-navbar-button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: color 0.3s ease;
+  padding-top: 3px;
+}
+
+.stock-sage-navbar-button:hover {
+  color: #ffffff;
+}
+
+.stock-sage-navbar-signup {
+  background: #2563eb;
+  color: #ffffff;
+  padding: 8px 24px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.stock-sage-navbar-signup:hover {
+  background: #1d4ed8;
+}
+
+/* Hero Section */
+.stock-sage-hero-section {
+  position: relative;
+  overflow: hidden;
+  padding: 80px 20px 64px;
+}
+
+.stock-sage-hero-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.stock-sage-hero-title {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 24px;
+  line-height: 1.1;
+}
+
+.stock-sage-hero-title-gradient {
+  background: linear-gradient(to right, #60a5fa, #a855f7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.stock-sage-hero-subtitle {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 32px;
+  max-width: 768px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.stock-sage-hero-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+}
+
+.stock-sage-google-signin-btn {
+  background: #ffffff;
+  color: #000000;
+  padding: 16px 32px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1.125rem;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  transition: all 0.3s ease;
+  transform: scale(1);
+}
+
+.stock-sage-google-signin-btn:hover {
+  background: #f3f4f6;
+  transform: scale(1.05);
+}
+
+.stock-sage-google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Background Animation */
+.stock-sage-hero-bg-element-1 {
+  position: absolute;
+  top: 25%;
+  left: 25%;
+  width: 256px;
+  height: 256px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 50%;
+  filter: blur(48px);
+  animation: stock-sage-pulse 2s infinite;
+}
+
+.stock-sage-hero-bg-element-2 {
+  position: absolute;
+  bottom: 25%;
+  right: 25%;
+  width: 256px;
+  height: 256px;
+  background: rgba(168, 85, 247, 0.1);
+  border-radius: 50%;
+  filter: blur(48px);
+  animation: stock-sage-pulse 2s infinite;
+  animation-delay: 1s;
+}
+
+@keyframes stock-sage-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Features Section */
+.stock-sage-features-section {
+  padding: 80px 20px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.stock-sage-features-container {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.stock-sage-features-header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.stock-sage-features-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 16px;
+}
+
+.stock-sage-features-subtitle {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.stock-sage-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 32px;
+}
+
+.stock-sage-feature-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 32px;
+  transition: all 0.3s ease;
+  transform: scale(1);
+}
+
+.stock-sage-feature-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+
+.stock-sage-feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  margin: 0 auto 24px;
+}
+
+.stock-sage-feature-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.stock-sage-feature-icon.blue svg {
+  color: #2563eb;
+}
+.stock-sage-feature-icon.green svg {
+  color: #16a34a;
+}
+.stock-sage-feature-icon.purple svg {
+  color: #9333ea;
+}
+
+.stock-sage-feature-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.stock-sage-feature-description {
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.stock-sage-feature-highlight {
+  background: linear-gradient(
+    to right,
+    rgba(59, 130, 246, 0.2),
+    rgba(168, 85, 247, 0.2)
+  );
+  border-radius: 8px;
+  padding: 8px 16px;
+  text-align: center;
+}
+
+.stock-sage-feature-highlight span {
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+/* Benefits Section */
+.stock-sage-benefits-section {
+  padding: 80px 20px;
+}
+
+.stock-sage-benefits-container {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.stock-sage-benefits-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.stock-sage-benefits-content h2 {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 24px;
+}
+
+.stock-sage-benefits-content p {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 32px;
+}
+
+.stock-sage-benefits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stock-sage-benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stock-sage-benefit-dot {
+  width: 8px;
+  height: 8px;
+  background: #4ade80;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stock-sage-benefit-text {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.stock-sage-benefits-stats {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.2),
+    rgba(168, 85, 247, 0.2)
+  );
+  border-radius: 24px;
+  padding: 32px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.stock-sage-stats-icon {
+  width: 64px;
+  height: 64px;
+  color: #60a5fa;
+  margin: 0 auto 16px;
+}
+
+.stock-sage-stats-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.stock-sage-stats-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 24px;
+}
+
+.stock-sage-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.stock-sage-stat-item {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.stock-sage-stat-number {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.stock-sage-stat-number.green {
+  color: #4ade80;
+}
+.stock-sage-stat-number.blue {
+  color: #60a5fa;
+}
+
+.stock-sage-stat-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.875rem;
+}
+
+/* About Section */
+.stock-sage-about-section {
+  padding: 80px 20px;
+  background: rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.stock-sage-about-container {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.stock-sage-about-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 24px;
+}
+
+.stock-sage-about-description {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.8);
+  max-width: 1024px;
+  margin: 0 auto 32px;
+}
+
+.stock-sage-about-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 32px;
+  margin-top: 48px;
+}
+
+.stock-sage-about-feature {
+  text-align: center;
+}
+
+.stock-sage-about-feature svg {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+}
+
+.stock-sage-about-feature svg.green {
+  color: #4ade80;
+}
+.stock-sage-about-feature svg.blue {
+  color: #60a5fa;
+}
+.stock-sage-about-feature svg.purple {
+  color: #a855f7;
+}
+
+.stock-sage-about-feature h3 {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.stock-sage-about-feature p {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* CTA Section */
+.stock-sage-cta-section {
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.stock-sage-cta-container {
+  max-width: 1024px;
+  margin: 0 auto;
+}
+
+.stock-sage-cta-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 24px;
+}
+
+.stock-sage-cta-description {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 32px;
+}
+
+.stock-sage-cta-button {
+  background: linear-gradient(to right, #2563eb, #9333ea);
+  color: #ffffff;
+  padding: 16px 48px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1.125rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  transform: scale(1);
+}
+
+.stock-sage-cta-button:hover {
+  background: linear-gradient(to right, #1d4ed8, #7c3aed);
+  transform: scale(1.05);
+}
+
+/* Popup Styles */
+.stock-sage-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+}
+
+.stock-sage-popup-content {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 448px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  color: #000000;
+}
+
+.stock-sage-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.stock-sage-popup-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #111827;
+}
+
+.stock-sage-popup-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.3s ease;
+}
+
+.stock-sage-popup-close:hover {
+  color: #4b5563;
+}
+
+.stock-sage-popup-close svg {
+  width: 24px;
+  height: 24px;
+}
+
+.stock-sage-popup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stock-sage-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.stock-sage-form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.stock-sage-form-label svg {
+  width: 16px;
+  height: 16px;
+  display: inline;
+  margin-right: 8px;
+}
+
+.stock-sage-form-input {
+  width: 100%;
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.stock-sage-form-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.stock-sage-form-input:disabled {
+  background: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.stock-sage-form-select {
+  width: 100%;
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #ffffff;
+  transition: all 0.3s ease;
+}
+
+.stock-sage-form-select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.stock-sage-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stock-sage-checkbox-item {
+  display: flex;
+  align-items: center;
+}
+
+.stock-sage-checkbox-input {
+  margin-right: 8px;
+  accent-color: #2563eb;
+}
+
+.stock-sage-checkbox-label {
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+}
+
+.stock-sage-submit-button {
+  width: 100%;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.stock-sage-submit-button:hover {
+  background: #1d4ed8;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .stock-sage-navbar-menu {
+    display: none;
+  }
+
+  .stock-sage-hero-title {
+    font-size: 2rem;
+  }
+
+  .stock-sage-hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .stock-sage-hero-buttons {
+    align-items: stretch;
+  }
+
+  .stock-sage-benefits-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .stock-sage-features-title,
+  .stock-sage-about-title,
+  .stock-sage-cta-title {
+    font-size: 2rem;
+  }
+
+  .stock-sage-benefits-content h2 {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .stock-sage-hero-title {
+    font-size: 1.75rem;
+  }
+
+  .stock-sage-popup-content {
+    padding: 24px;
+    margin: 16px;
+  }
+}

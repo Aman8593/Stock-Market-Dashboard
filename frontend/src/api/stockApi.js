@@ -3,7 +3,7 @@ import axios from "axios";
 const BASE_URL = "http://localhost:8000";
 
 export const getStocks = async (market) => {
-  const res = await axios.get(`${BASE_URL}/stocks/${market}`);
+  const res = await axios.get(`${BASE_URL}/stocks`);
   return res.data;
 };
 
@@ -14,5 +14,10 @@ export const analyzeStock = async (symbol) => {
 
 export const getFundamentals = async (symbol) => {
   const res = await axios.get(`${BASE_URL}/fundamentals/${symbol}`);
+  return res.data;
+};
+
+export const getLiveSignals = async () => {
+  const res = await axios.get(`${BASE_URL}/api/v1/live-top-signals`);
   return res.data;
 };

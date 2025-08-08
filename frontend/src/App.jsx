@@ -1,46 +1,48 @@
-import React, { useState } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Navbar from "./components/Navbar.jsx";
-import StockAnalyzer from "./components/StockAnalyzer.jsx";
-import Fundamentals from "./components/Fundamentals.jsx";
-import OptionStrategies from "./components/OptionStrategies.jsx";
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import "./App.css";
-function App() {
-  const [stockSymbol, setStockSymbol] = useState("");
-  const [stockData, setStockData] = useState(null);
-  const [fundamentalsData, setFundamentalsData] = useState(null);
+import Home from "./components/Home.jsx";
+import Intro from "./components/Intro.jsx";
 
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const isAuthenticated = localStorage.getItem("isAuthenticated");
+  return isAuthenticated ? children : <Navigate to="/" replace />;
+};
+
+function App() {
   return (
     <Router>
-      <div className="app-container">
-        <Navbar />
-        <h1>📈 Stock Dashboard</h1>
+      <Routes>
+        <Route path="/" element={<Intro />} />
 
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <StockAnalyzer
-                symbol={stockSymbol}
-                setSymbol={setStockSymbol}
-                data={stockData}
-                setData={setStockData}
-              />
-            }
-          />
-          <Route
-            path="/fundamentals"
-            element={
-              <Fundamentals
-                symbol={stockSymbol}
-                data={fundamentalsData}
-                setData={setFundamentalsData}
-              />
-            }
-          />
-          <Route path="/options" element={<OptionStrategies />} />
-        </Routes>
-      </div>
+        <Route
+          path="/home/*"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+        {/* Redirect old routes to home */}
+        {/* <Route
+          path="/news_analysis"
+          element={<Navigate to="/home/news_analysis" replace />}
+        />
+        <Route
+          path="/fundamentals"
+          element={<Navigate to="/home/fundamentals" replace />}
+        />
+        <Route
+          path="/options"
+          element={<Navigate to="/home/options" replace />}
+        /> */}
+      </Routes>
     </Router>
   );
 }
