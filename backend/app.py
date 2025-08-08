@@ -7,9 +7,25 @@ from routers.users import router as user_router
 import asyncio
 from concurrent.futures import Executor, ThreadPoolExecutor
 from routers.live_signal import router as signals_router
+from database import test_db_connection
+import logging
 
 from news_analysis import AdvancedStockAnalyzer
-app = FastAPI()
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Stock Sage API", version="1.0.0")
+
+@app.on_event("startup")
+async def startup_event():
+    """Test database connection on startup"""
+    logger.info("🚀 Starting Stock Sage API...")
+    db_connected = await test_db_connection()
+    if not db_connected:
+        logger.warning("⚠️ Database connection failed, but continuing startup...")
+    logger.info("✅ Stock Sage API started successfully")
 
 # Initialize the analyzer (singleton pattern)
 analyzer = AdvancedStockAnalyzer()
@@ -19,11 +35,18 @@ analyzer = AdvancedStockAnalyzer()
 executor = ThreadPoolExecutor(max_workers=10)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173","https://t77p27qq-5173.inc1.devtunnels.ms/"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "https://t77p27qq-5173.inc1.devtunnels.ms"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"  # Changed from require-corp
+    return response
 
 def get_full_symbol(symbol: str) -> str:
     """Normalize symbol to include .NS if Indian"""
@@ -224,6 +247,12 @@ app.include_router(strategy_router)
 
 # Add user authentication endpoints
 app.include_router(user_router)
+
+# Test endpoint for debugging
+@app.get("/test-auth")
+async def test_auth():
+    """Test endpoint to verify API is working"""
+    return {"status": "API is working", "message": "Authentication endpoints are available"}
 
 # Add live signal endpoints
 app.include_router(signals_router)

@@ -9,17 +9,41 @@ const Fundamentals = ({ symbol, setSymbol, data, setData, allSymbols }) => {
   const isIndian = (sym) => sym.trim().toUpperCase().endsWith(".NS");
 
   useEffect(() => {
-    // const storedData = localStorage.getItem("lastStockData");
-    // const storedSymbol = localStorage.getItem("lastStockSymbol");
-
-    const storedData = localStorage.getItem("fundamentalsData"); // ← Changed
+    const storedData = localStorage.getItem("fundamentalsData");
     const storedSymbol = localStorage.getItem("fundamentalsSymbol");
+
     if (storedData && storedSymbol) {
-      setSymbol(storedSymbol);
-      setData(JSON.parse(storedData));
-    } else {
-      setSymbol("INFY"); // fallback default
+      try {
+        const parsedData = JSON.parse(storedData);
+        if (parsedData && typeof parsedData === "object") {
+          setSymbol(storedSymbol);
+          setData(parsedData);
+          return; // Exit early if we have stored data
+        }
+      } catch (error) {
+        console.error("Error parsing localStorage fundamentals data:", error);
+      }
     }
+
+    // If no stored data, load INFY by default
+    const loadDefaultFundamentals = async () => {
+      setSymbol("INFY");
+      setLoading(true);
+
+      try {
+        const response = await getFundamentals("INFY");
+        setData(response);
+        localStorage.setItem("fundamentalsData", JSON.stringify(response));
+        localStorage.setItem("fundamentalsSymbol", "INFY");
+      } catch (err) {
+        console.error("Error loading default fundamentals:", err);
+        setError("Failed to load default fundamentals data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDefaultFundamentals();
   }, []);
 
   // useEffect(() => {

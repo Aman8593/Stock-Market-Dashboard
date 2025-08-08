@@ -12,6 +12,7 @@ import {
   Phone,
   MapPin,
   Import,
+  Menu,
 } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +21,7 @@ import "./Intro.css"; // Import the CSS file
 const Intro = () => {
   const [showSignup, setShowSignup] = useState(false);
   const [showGoogleLogin, setShowGoogleLogin] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [signupData, setSignupData] = useState({
     fullName: "",
     email: "",
@@ -31,9 +33,38 @@ const Intro = () => {
 
   const navigate = useNavigate();
 
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showMobileMenu && !event.target.closest(".stock-sage-navbar")) {
+        setShowMobileMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showMobileMenu]);
+
+  // Close mobile menu on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (showMobileMenu) {
+        setShowMobileMenu(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [showMobileMenu]);
+
   const handleCallbackResponse = async (response) => {
     if (!response.credential) {
       console.error("No credential returned from Google");
+      alert("Google sign-in failed. Please try again.");
       return;
     }
 
@@ -41,15 +72,30 @@ const Intro = () => {
     console.log("Google user:", userObj);
 
     try {
+      console.log("Sending request to backend...");
       const res = await fetch("http://localhost:8000/google-login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify(userObj),
       });
 
+      console.log("Response status:", res.status);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Backend error:", errorText);
+        alert(`Authentication failed: ${res.status} ${res.statusText}`);
+        return;
+      }
+
       const data = await res.json();
+      console.log("Backend response:", data);
 
       if (data.isNewUser) {
+        console.log("New user detected, showing signup form");
         // Pre-fill signup data with Google info
         setSignupData((prev) => ({
           ...prev,
@@ -59,15 +105,17 @@ const Intro = () => {
         setShowGoogleLogin(false);
         setShowSignup(true);
       } else {
+        console.log("Existing user, logging in");
         // Store user authentication state
         localStorage.setItem("isAuthenticated", "true");
-        localStorage.setItem("user", JSON.stringify(userObj));
+        localStorage.setItem("user", JSON.stringify(data.user || userObj));
 
         // Redirect to home page
         navigate("/home");
       }
     } catch (err) {
       console.error("Error sending user data to backend:", err);
+      alert("Network error. Please check your connection and try again.");
     }
   };
 
@@ -122,21 +170,31 @@ const Intro = () => {
 
   const handleSignupSubmit = async () => {
     try {
+      console.log("Submitting profile data:", signupData);
+
+      const profileData = {
+        email: signupData.email,
+        mobile: signupData.phone,
+        profession: signupData.experience,
+        fullName: signupData.fullName,
+        location: signupData.location,
+        interests: signupData.interests,
+      };
+
       const res = await fetch("http://localhost:8000/complete-profile", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: signupData.email,
-          mobile: signupData.phone,
-          profession: signupData.experience,
-          fullName: signupData.fullName,
-          location: signupData.location,
-          interests: signupData.interests,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(profileData),
       });
+
+      console.log("Profile completion response status:", res.status);
 
       if (res.ok) {
         const data = await res.json();
+        console.log("Profile completion successful:", data);
 
         // Set authentication state like existing users
         localStorage.setItem("isAuthenticated", "true");
@@ -145,17 +203,26 @@ const Intro = () => {
           JSON.stringify({
             email: signupData.email,
             name: signupData.fullName,
-            ...data, // Include any additional data from backend
+            ...data.user, // Include user data from backend
           })
         );
 
         setShowSignup(false);
+        console.log("Navigating to home page");
         navigate("/home");
       } else {
-        console.error("Profile completion failed:", res.status, res.statusText);
+        const errorText = await res.text();
+        console.error(
+          "Profile completion failed:",
+          res.status,
+          res.statusText,
+          errorText
+        );
+        alert(`Profile completion failed: ${res.status} ${res.statusText}`);
       }
     } catch (err) {
       console.error("Error completing profile:", err);
+      alert("Network error during profile completion. Please try again.");
     }
   };
 
@@ -214,9 +281,30 @@ const Intro = () => {
             <span>Stock Sage</span>
           </div>
 
+          {/* Desktop Menu */}
           <div className="stock-sage-navbar-menu">
-            <a href="#features">Features</a>
-            <a href="#about">About Us</a>
+            <a
+              href="#features"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("features")?.scrollIntoView({
+                  behavior: "smooth",
+                });
+              }}
+            >
+              Features
+            </a>
+            <a
+              href="#about"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("about")?.scrollIntoView({
+                  behavior: "smooth",
+                });
+              }}
+            >
+              About Us
+            </a>
             <button onClick={handleLogin} className="stock-sage-navbar-button">
               Sign In
             </button>
@@ -227,7 +315,71 @@ const Intro = () => {
               Get Started
             </button>
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            className="stock-sage-mobile-menu-button"
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            aria-label="Toggle mobile menu"
+            aria-expanded={showMobileMenu}
+          >
+            <Menu size={24} />
+          </button>
         </div>
+
+        {/* Mobile Menu Dropdown */}
+        {showMobileMenu && (
+          <div className="stock-sage-mobile-menu">
+            <a
+              href="#features"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowMobileMenu(false);
+                // Smooth scroll to section
+                setTimeout(() => {
+                  document.getElementById("features")?.scrollIntoView({
+                    behavior: "smooth",
+                  });
+                }, 100);
+              }}
+            >
+              Features
+            </a>
+            <a
+              href="#about"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowMobileMenu(false);
+                // Smooth scroll to section
+                setTimeout(() => {
+                  document.getElementById("about")?.scrollIntoView({
+                    behavior: "smooth",
+                  });
+                }, 100);
+              }}
+            >
+              About Us
+            </a>
+            <button
+              onClick={() => {
+                handleLogin();
+                setShowMobileMenu(false);
+              }}
+              className="stock-sage-mobile-menu-button-item"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => {
+                handleGoogleSignIn();
+                setShowMobileMenu(false);
+              }}
+              className="stock-sage-mobile-menu-signup"
+            >
+              Get Started
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* Hero Section */}
@@ -437,12 +589,143 @@ const Intro = () => {
             </div>
 
             <div className="stock-sage-popup-form">
-              {/* Form Inputs */}
-              {/* Replace form-group → stock-sage-form-group, etc. */}
-              ...
+              <div className="stock-sage-form-group">
+                <label className="stock-sage-form-label">
+                  <User size={16} />
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  className="stock-sage-form-input"
+                  value={signupData.fullName}
+                  onChange={(e) =>
+                    setSignupData((prev) => ({
+                      ...prev,
+                      fullName: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter your full name"
+                  disabled
+                />
+              </div>
+
+              <div className="stock-sage-form-group">
+                <label className="stock-sage-form-label">
+                  <Mail size={16} />
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  className="stock-sage-form-input"
+                  value={signupData.email}
+                  onChange={(e) =>
+                    setSignupData((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter your email"
+                  disabled
+                />
+              </div>
+
+              <div className="stock-sage-form-group">
+                <label className="stock-sage-form-label">
+                  <Phone size={16} />
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  className="stock-sage-form-input"
+                  value={signupData.phone}
+                  onChange={(e) =>
+                    setSignupData((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter your phone number"
+                />
+              </div>
+
+              <div className="stock-sage-form-group">
+                <label className="stock-sage-form-label">
+                  <MapPin size={16} />
+                  Location
+                </label>
+                <input
+                  type="text"
+                  className="stock-sage-form-input"
+                  value={signupData.location}
+                  onChange={(e) =>
+                    setSignupData((prev) => ({
+                      ...prev,
+                      location: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter your location"
+                />
+              </div>
+
+              <div className="stock-sage-form-group">
+                <label className="stock-sage-form-label">
+                  <Import size={16} />
+                  Trading Experience
+                </label>
+                <select
+                  className="stock-sage-form-select"
+                  value={signupData.experience}
+                  onChange={(e) =>
+                    setSignupData((prev) => ({
+                      ...prev,
+                      experience: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Select your experience level</option>
+                  <option value="beginner">Beginner (0-1 years)</option>
+                  <option value="intermediate">Intermediate (1-3 years)</option>
+                  <option value="advanced">Advanced (3-5 years)</option>
+                  <option value="expert">Expert (5+ years)</option>
+                </select>
+              </div>
+
+              <div className="stock-sage-form-group">
+                <label className="stock-sage-form-label">
+                  Trading Interests (Select all that apply)
+                </label>
+                <div className="stock-sage-checkbox-group">
+                  {[
+                    "Stocks",
+                    "Options",
+                    "Futures",
+                    "Forex",
+                    "Crypto",
+                    "Commodities",
+                  ].map((interest) => (
+                    <div key={interest} className="stock-sage-checkbox-item">
+                      <input
+                        type="checkbox"
+                        id={interest}
+                        className="stock-sage-checkbox-input"
+                        checked={signupData.interests.includes(interest)}
+                        onChange={() => handleInterestChange(interest)}
+                      />
+                      <label
+                        htmlFor={interest}
+                        className="stock-sage-checkbox-label"
+                      >
+                        {interest}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <button
                 onClick={handleSignupSubmit}
                 className="stock-sage-submit-button"
+                disabled={!signupData.fullName || !signupData.email}
               >
                 Complete Setup
               </button>

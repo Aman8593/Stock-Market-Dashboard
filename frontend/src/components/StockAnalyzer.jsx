@@ -48,7 +48,7 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
     }
   }, []);
 
-  // Load last analyzed stock from localStorage
+  // Load last analyzed stock from localStorage or default to INFY
   useEffect(() => {
     const storedData = localStorage.getItem("lastStockData");
     const storedSymbol = localStorage.getItem("lastStockSymbol");
@@ -59,11 +59,32 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
         if (parsedData && typeof parsedData === "object") {
           setSymbol(storedSymbol);
           setData(parsedData);
+          return; // Exit early if we have stored data
         }
       } catch (error) {
         console.error("Error parsing localStorage data:", error);
       }
     }
+
+    // If no stored data, load INFY by default
+    const loadDefaultStock = async () => {
+      setSymbol("INFY");
+      setLoading((prev) => ({ ...prev, stock: true }));
+
+      try {
+        const result = await analyzeStock("INFY");
+        setData(result);
+        localStorage.setItem("lastStockData", JSON.stringify(result));
+        localStorage.setItem("lastStockSymbol", "INFY");
+      } catch (err) {
+        console.error("Error loading default stock:", err);
+        setError("Failed to load default stock data.");
+      } finally {
+        setLoading((prev) => ({ ...prev, stock: false }));
+      }
+    };
+
+    loadDefaultStock();
   }, []);
 
   const handleAnalyze = async () => {
