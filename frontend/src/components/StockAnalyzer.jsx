@@ -219,6 +219,18 @@ const MarketTable = ({ stocks, currency, loading }) => {
   if (loading) return <div>Loading...</div>;
   if (!stocks || stocks.length === 0) return <div>No data available</div>;
 
+  // Helper function to format signal display
+  const formatSignal = (signal) => {
+    switch (signal) {
+      case "STRONG_BUY":
+        return "BUY";
+      case "STRONG_SELL":
+        return "SELL";
+      default:
+        return signal;
+    }
+  };
+
   return (
     <table className="market-table-table">
       <thead>
@@ -239,7 +251,7 @@ const MarketTable = ({ stocks, currency, loading }) => {
             <td className="market-table-td">
               {stock.price?.toFixed(2) ?? "N/A"}
             </td>
-            <td className="market-table-td">{stock.signal}</td>
+            <td className="market-table-td">{formatSignal(stock.signal)}</td>
             <td className="market-table-td">
               {stock.confidence?.toFixed(2) ?? "N/A"}%
             </td>

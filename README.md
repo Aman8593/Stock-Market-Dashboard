@@ -44,7 +44,7 @@ npm run dev
 
 - **Frontend**: React 19 + Material-UI + Vite
 - **Backend**: FastAPI + Python + AI/ML libraries
-- **Database**: SQLite (development) / PostgreSQL (production)
+- **Database**: MongoDB
 - **Authentication**: Google OAuth
 
 ## 🤝 Contributing

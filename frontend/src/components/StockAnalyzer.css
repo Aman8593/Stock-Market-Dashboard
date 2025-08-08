@@ -165,6 +165,9 @@
   .market-table-td {
     padding: 4px 6px;
   }
+  .analyzer-title {
+    padding-top: 20px;
+  }
 }
 @keyframes spin {
   0% {
@@ -177,9 +180,11 @@
 
 @media (max-width: 768px) {
   .analyzer-container {
-    padding: 100px 10px;
+    padding: 10px;
   }
-
+  .markets-grid-container {
+    padding: 0px;
+  }
   .input-field {
     width: 100%;
     margin-bottom: 10px;
