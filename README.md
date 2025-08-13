@@ -38,7 +38,7 @@ npm run dev
 - [Frontend Documentation](./frontend/README.md) - React app setup and components
 - [Backend Documentation](./backend/README.md) - API endpoints and services
 - [Stock Analysis Algorithm](./docs/STOCK_SIGNAL_ANALYSIS.md) - Technical analysis methodology
-- [Technical Indicators](./docs/technical_indicators.md) - Indicator calculations
+- [Technical Indicators](./docs/TECHNICAL_INDICATORS.md) - Indicator calculations
 
 ## 🔧 Development
 
