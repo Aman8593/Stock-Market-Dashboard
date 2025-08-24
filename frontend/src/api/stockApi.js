@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const BASE_URL = "http://localhost:8000";
+// Dynamic base URL - use environment variable in production, localhost in development
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 export const getStocks = async (market) => {
   const res = await axios.get(`${BASE_URL}/stocks`);

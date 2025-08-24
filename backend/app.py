@@ -41,7 +41,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get CORS origins from environment variable or use defaults
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,https://stock-market-dashboard-psi.vercel.app").split(",")
 
 app.add_middleware(
     CORSMiddleware,

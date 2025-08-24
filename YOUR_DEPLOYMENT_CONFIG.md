@@ -31,8 +31,8 @@ Start Command: uvicorn app:app --host 0.0.0.0 --port $PORT
 ## 🔗 Final URLs After Backend Deployment:
 
 - **Frontend**: https://stock-market-dashboard-psi.vercel.app
-- **Backend**: https://stocksage-api.onrender.com
-- **API Health**: https://stocksage-api.onrender.com/health
+- **Backend**: https://stock-market-dashboard-oiok.onrender.com
+- **API Health**: https://stock-market-dashboard-oiok.onrender.com/health
 
 ## 📋 Next Steps:
 
@@ -50,7 +50,7 @@ Start Command: uvicorn app:app --host 0.0.0.0 --port $PORT
 3. Go to Settings → Environment Variables
 4. Add/Update:
    ```
-   VITE_API_BASE_URL=https://stocksage-api.onrender.com
+   VITE_API_BASE_URL=https://stock-market-dashboard-oiok.onrender.com
    VITE_GOOGLE_CLIENT_ID=901831058444-aulhp05opla5c42a6vr3srkljh0kdei0.apps.googleusercontent.com
    ```
 5. Redeploy frontend
