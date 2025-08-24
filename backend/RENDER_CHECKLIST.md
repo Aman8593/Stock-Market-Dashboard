@@ -35,7 +35,7 @@ MONGODB_URL=mongodb+srv://user:pass@cluster.mongodb.net/stocksage
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 JWT_SECRET_KEY=your-random-secret-key
-CORS_ORIGINS=http://localhost:5173
+CORS_ORIGINS=https://stock-market-dashboard-psi.vercel.app,http://localhost:5173
 ```
 
 ### 4. Deploy & Test
