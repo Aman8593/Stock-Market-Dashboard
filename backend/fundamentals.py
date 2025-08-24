@@ -2,7 +2,7 @@ import yfinance as yf
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-import yfinance as yf
+import re
 
 def parse_financial_table(soup, section_title):
     try:
@@ -114,6 +114,17 @@ def get_company_overview_data(symbol):
         roce = extract_roce(soup, page_text)
         roe = extract_roe(soup, page_text)
         
+        # If we couldn't get sector or ROCE from screener, try yfinance as fallback
+        if sector == "N/A" or roce == "N/A":
+            try:
+                yf_data = get_yfinance_fallback_data(symbol)
+                if sector == "N/A" and yf_data.get("sector") != "N/A":
+                    sector = yf_data["sector"]
+                if roce == "N/A" and yf_data.get("roce") != "N/A":
+                    roce = yf_data["roce"]
+            except:
+                pass
+        
         return {
             "sector": sector,
             "market_cap": market_cap,
@@ -132,75 +143,171 @@ def get_company_overview_data(symbol):
             "roe": "N/A"
         }
 
+def get_yfinance_fallback_data(symbol):
+    """
+    Get sector and calculate ROCE using yfinance as fallback for Indian stocks
+    """
+    try:
+        # Try with .NS suffix for Indian stocks
+        ticker_symbol = f"{symbol}.NS"
+        ticker = yf.Ticker(ticker_symbol)
+        info = ticker.info
+        
+        sector = info.get("sector", "N/A")
+        
+        # Calculate ROCE from financial statements if available
+        roce = "N/A"
+        try:
+            # Get financial data
+            financials = ticker.financials
+            balance_sheet = ticker.balance_sheet
+            
+            if not financials.empty and not balance_sheet.empty:
+                # Get the most recent year data
+                latest_year = financials.columns[0]
+                
+                # Calculate EBIT (Operating Income)
+                ebit = None
+                if 'Operating Income' in financials.index:
+                    ebit = financials.loc['Operating Income', latest_year]
+                elif 'EBIT' in financials.index:
+                    ebit = financials.loc['EBIT', latest_year]
+                
+                # Calculate Capital Employed (Total Assets - Current Liabilities)
+                total_assets = None
+                current_liabilities = None
+                
+                if 'Total Assets' in balance_sheet.index:
+                    total_assets = balance_sheet.loc['Total Assets', latest_year]
+                if 'Current Liabilities' in balance_sheet.index:
+                    current_liabilities = balance_sheet.loc['Current Liabilities', latest_year]
+                
+                if ebit and total_assets and current_liabilities:
+                    capital_employed = total_assets - current_liabilities
+                    if capital_employed != 0:
+                        roce = (ebit / capital_employed) * 100
+                        roce = round(roce, 2)
+        except:
+            pass
+        
+        return {
+            "sector": sector,
+            "roce": roce
+        }
+        
+    except Exception as e:
+        print(f"Error in yfinance fallback: {e}")
+        return {
+            "sector": "N/A",
+            "roce": "N/A"
+        }
+
 def extract_sector_from_page(soup, page_text):
     """Extract sector information using multiple methods"""
     try:
         import re
         
-        # Method 1: Look for business description or about section
-        # This usually contains the actual business sector info
-        about_section = soup.find("div", class_="company-about") or soup.find("div", class_="description")
+        # Method 1: Look for sector in the top info section (most reliable)
+        top_info = soup.find("div", class_="top") or soup.find("div", class_="company-info")
+        if top_info:
+            # Look for sector in small text or sub-headings
+            small_elements = top_info.find_all(["small", "span", "p", "div"])
+            for element in small_elements:
+                text = element.get_text().strip()
+                # Check if this looks like a sector (not a number, not too short, not an index)
+                if (len(text) > 5 and len(text) < 50 and 
+                    not re.match(r'^[\d\.,\s%₹$]+$', text) and
+                    not any(word in text.lower() for word in ['nifty', 'sensex', 'index', 'bse', 'nse', 'show', 'more', 'market cap', 'pe', 'price'])):
+                    # This might be the sector
+                    if any(sector_word in text.lower() for sector_word in ['services', 'technology', 'banking', 'pharma', 'auto', 'steel', 'oil', 'telecom', 'fmcg', 'textile', 'cement', 'power', 'finance', 'insurance', 'retail', 'media', 'real estate']):
+                        return text
+        
+        # Method 2: Look for breadcrumb or navigation that shows sector
+        breadcrumb = soup.find("nav", class_="breadcrumb") or soup.find("ol", class_="breadcrumb")
+        if breadcrumb:
+            links = breadcrumb.find_all("a")
+            for link in links:
+                text = link.get_text().strip()
+                if (len(text) > 5 and 
+                    not any(word in text.lower() for word in ['home', 'companies', 'screener', 'nifty', 'sensex'])):
+                    return text
+        
+        # Method 3: Look in the company description/about section
+        about_section = soup.find("div", class_="company-about") or soup.find("div", class_="description") or soup.find("section", id="about")
         if about_section:
             about_text = about_section.get_text()
             # Look for sector/industry keywords in description
-            sector_keywords = ['software', 'IT services', 'consulting', 'technology', 'banking', 'pharmaceutical', 'automobile', 'steel', 'oil', 'gas', 'telecom']
-            for keyword in sector_keywords:
-                if keyword.lower() in about_text.lower():
-                    if 'software' in about_text.lower() or 'IT' in about_text or 'information technology' in about_text.lower():
-                        return "IT Services & Consulting"
-                    elif 'bank' in about_text.lower():
-                        return "Banking"
-                    elif 'pharma' in about_text.lower():
-                        return "Pharmaceuticals"
+            sector_patterns = [
+                r'(?:operates in|engaged in|business of|sector of|industry of)\s+([^.]+)',
+                r'(?:is a|leading)\s+([^.]*(?:services|technology|banking|pharma|auto|steel|oil|telecom|fmcg|textile|cement|power|finance|insurance|retail|media)[^.]*)',
+            ]
+            for pattern in sector_patterns:
+                match = re.search(pattern, about_text, re.IGNORECASE)
+                if match:
+                    sector_text = match.group(1).strip()
+                    if len(sector_text) < 100:  # Reasonable length
+                        return sector_text
         
-        # Method 2: Look for sector in peer comparison or similar companies section
+        # Method 4: Look for sector in peer comparison section header
         peers_section = soup.find("section", id="peers") or soup.find("div", class_="peers")
         if peers_section:
-            sector_element = peers_section.find("h3") or peers_section.find("h2")
-            if sector_element:
-                sector_text = sector_element.get_text().strip()
-                if sector_text and not any(word in sector_text.lower() for word in ['peer', 'comparison', 'companies', 'nifty']):
-                    return sector_text
+            # Look for heading that mentions sector
+            headings = peers_section.find_all(["h1", "h2", "h3", "h4"])
+            for heading in headings:
+                text = heading.get_text().strip()
+                if ('peer' in text.lower() or 'similar' in text.lower()) and len(text) > 10:
+                    # Extract sector from text like "Peers in IT Services sector"
+                    sector_match = re.search(r'(?:in|of)\s+([^.]+?)(?:\s+sector|\s+industry|$)', text, re.IGNORECASE)
+                    if sector_match:
+                        sector = sector_match.group(1).strip()
+                        if not any(word in sector.lower() for word in ['peer', 'comparison', 'companies', 'nifty']):
+                            return sector
         
-        # Method 3: Look in the company profile table/section
-        profile_elements = soup.find_all(["td", "th", "div", "span"])
-        for element in profile_elements:
-            text = element.get_text().strip()
-            if text.lower() == 'sector' or text.lower() == 'industry':
-                # Find the next sibling or parent element that contains the sector value
-                next_element = element.find_next_sibling() or element.parent.find_next_sibling()
-                if next_element:
-                    sector_value = next_element.get_text().strip()
-                    # Filter out index names and invalid sectors
-                    if (sector_value and len(sector_value) > 2 and 
-                        not any(word in sector_value.lower() for word in ['nifty', 'sensex', 'index', 'bse', 'nse', 'show', 'more'])):
-                        return sector_value
+        # Method 5: Look in ratios or key metrics table for sector info
+        tables = soup.find_all("table")
+        for table in tables:
+            rows = table.find_all("tr")
+            for row in rows:
+                cells = row.find_all(["td", "th"])
+                if len(cells) >= 2:
+                    first_cell = cells[0].get_text().strip().lower()
+                    if 'sector' in first_cell or 'industry' in first_cell:
+                        sector_value = cells[1].get_text().strip()
+                        if (sector_value and len(sector_value) > 2 and 
+                            not any(word in sector_value.lower() for word in ['nifty', 'sensex', 'index', 'bse', 'nse'])):
+                            return sector_value
         
-        # Method 4: Look for meta tags with industry/sector info
+        # Method 6: Look for meta tags with industry/sector info
         meta_tags = soup.find_all("meta")
         for meta in meta_tags:
             content = meta.get("content", "")
             if "sector" in content.lower() or "industry" in content.lower():
-                # Extract sector from meta content
                 sector_match = re.search(r'(?:sector|industry)[:\s]*([^,\.\n]+)', content, re.IGNORECASE)
                 if sector_match:
                     sector = sector_match.group(1).strip()
                     if not any(word in sector.lower() for word in ['nifty', 'index', 'stock']):
                         return sector
         
-        # Method 5: Fallback - look for specific company patterns
+        # Method 7: Fallback - look for specific company patterns and known sectors
         company_name = soup.find("h1")
         if company_name:
             name = company_name.get_text().lower()
-            if 'infosys' in name or 'tcs' in name or 'wipro' in name or 'tech' in name:
+            if any(word in name for word in ['infosys', 'tcs', 'wipro', 'tech mahindra', 'hcl tech']):
                 return "IT Services & Consulting"
-            elif 'bank' in name:
-                return "Banking"
-            elif 'pharma' in name:
+            elif any(word in name for word in ['hdfc', 'icici', 'sbi', 'axis', 'kotak', 'bank']):
+                return "Banking & Financial Services"
+            elif any(word in name for word in ['sun pharma', 'dr reddy', 'cipla', 'lupin', 'pharma']):
                 return "Pharmaceuticals"
+            elif any(word in name for word in ['tata motors', 'mahindra', 'maruti', 'bajaj auto', 'hero motocorp']):
+                return "Automobile"
+            elif any(word in name for word in ['reliance', 'ongc', 'oil', 'gas']):
+                return "Oil & Gas"
+            elif any(word in name for word in ['tata steel', 'jsw steel', 'steel']):
+                return "Steel"
         
         return "N/A"
-    except:
+    except Exception as e:
+        print(f"Error extracting sector: {e}")
         return "N/A"
 
 def extract_market_cap_from_page(soup, page_text):
@@ -316,22 +423,88 @@ def extract_roce(soup, page_text):
     try:
         import re
         
-        # Look for ROCE patterns
+        # Method 1: Look for ROCE in ratios table (most reliable)
+        tables = soup.find_all("table")
+        for table in tables:
+            rows = table.find_all("tr")
+            for row in rows:
+                cells = row.find_all(["td", "th"])
+                if len(cells) >= 2:
+                    first_cell = cells[0].get_text().strip().lower()
+                    if 'roce' in first_cell or 'return on capital' in first_cell:
+                        # Found ROCE row, extract value from second cell
+                        value_cell = cells[1].get_text().strip()
+                        # Look for percentage or number
+                        roce_match = re.search(r'([+-]?[0-9]+(?:\.[0-9]+)?)%?', value_cell)
+                        if roce_match:
+                            roce_value = float(roce_match.group(1))
+                            if -100 < roce_value < 500:  # Reasonable range
+                                return roce_value
+        
+        # Method 2: Look for ROCE patterns in page text
         roce_patterns = [
-            r'ROCE[:\s]*([0-9]+(?:\.[0-9]+)?)%?',
-            r'Return on Capital Employed[:\s]*([0-9]+(?:\.[0-9]+)?)%?',
-            r'RoCE[:\s]*([0-9]+(?:\.[0-9]+)?)%?'
+            r'ROCE[:\s]*([+-]?[0-9]+(?:\.[0-9]+)?)%?',
+            r'Return on Capital Employed[:\s]*([+-]?[0-9]+(?:\.[0-9]+)?)%?',
+            r'RoCE[:\s]*([+-]?[0-9]+(?:\.[0-9]+)?)%?',
+            r'Return on Capital[:\s]*([+-]?[0-9]+(?:\.[0-9]+)?)%?'
         ]
         
         for pattern in roce_patterns:
-            match = re.search(pattern, page_text, re.IGNORECASE)
-            if match:
+            matches = re.finditer(pattern, page_text, re.IGNORECASE)
+            for match in matches:
                 roce_value = float(match.group(1))
                 # Basic validation - ROCE should be reasonable percentage
-                if -100 < roce_value < 200:
+                if -100 < roce_value < 500:
                     return roce_value
         
-        # Look in ratios table specifically
+        # Method 3: Calculate ROCE from financial data if available
+        # ROCE = EBIT / Capital Employed
+        # Capital Employed = Total Assets - Current Liabilities
+        try:
+            # Look for financial data in tables
+            financial_data = {}
+            for table in tables:
+                rows = table.find_all("tr")
+                for row in rows:
+                    cells = row.find_all(["td", "th"])
+                    if len(cells) >= 2:
+                        label = cells[0].get_text().strip().lower()
+                        value_text = cells[1].get_text().strip()
+                        
+                        # Extract numeric value
+                        value_match = re.search(r'([+-]?[0-9,]+(?:\.[0-9]+)?)', value_text.replace(',', ''))
+                        if value_match:
+                            try:
+                                value = float(value_match.group(1).replace(',', ''))
+                                
+                                # Map common financial terms
+                                if any(term in label for term in ['ebit', 'operating profit', 'operating income']):
+                                    financial_data['ebit'] = value
+                                elif any(term in label for term in ['total assets', 'total asset']):
+                                    financial_data['total_assets'] = value
+                                elif any(term in label for term in ['current liabilities', 'current liability']):
+                                    financial_data['current_liabilities'] = value
+                                elif any(term in label for term in ['capital employed']):
+                                    financial_data['capital_employed'] = value
+                            except:
+                                continue
+            
+            # Calculate ROCE if we have the data
+            if 'ebit' in financial_data:
+                if 'capital_employed' in financial_data and financial_data['capital_employed'] != 0:
+                    roce = (financial_data['ebit'] / financial_data['capital_employed']) * 100
+                    if -100 < roce < 500:
+                        return round(roce, 2)
+                elif ('total_assets' in financial_data and 'current_liabilities' in financial_data):
+                    capital_employed = financial_data['total_assets'] - financial_data['current_liabilities']
+                    if capital_employed != 0:
+                        roce = (financial_data['ebit'] / capital_employed) * 100
+                        if -100 < roce < 500:
+                            return round(roce, 2)
+        except:
+            pass
+        
+        # Method 4: Look in specific ratios section
         ratios_section = soup.find("section", id="ratios") or soup.find("div", class_="ratios")
         if ratios_section:
             roce_element = ratios_section.find(string=re.compile(r'ROCE|Return on Capital', re.IGNORECASE))
@@ -339,14 +512,96 @@ def extract_roce(soup, page_text):
                 parent = roce_element.parent
                 row = parent.find_parent("tr") or parent.find_parent("div")
                 if row:
-                    numbers = re.findall(r'([0-9]+(?:\.[0-9]+)?)%?', row.get_text())
+                    numbers = re.findall(r'([+-]?[0-9]+(?:\.[0-9]+)?)%?', row.get_text())
                     for num in numbers:
-                        roce_val = float(num.replace('%', ''))
-                        if -100 < roce_val < 200:
-                            return roce_val
+                        try:
+                            roce_val = float(num.replace('%', ''))
+                            if -100 < roce_val < 500:
+                                return roce_val
+                        except:
+                            continue
         
         return "N/A"
-    except:
+    except Exception as e:
+        print(f"Error extracting ROCE: {e}")
+        return "N/A"
+
+def calculate_roce_from_statements(income_stmt, balance_sheet):
+    """
+    Calculate ROCE from financial statements when not directly available
+    ROCE = EBIT / Capital Employed
+    Capital Employed = Total Assets - Current Liabilities OR Shareholders' Equity + Long-term Debt
+    """
+    try:
+        if not income_stmt or not balance_sheet:
+            return "N/A"
+        
+        # Get the most recent year data (first column usually)
+        latest_year = None
+        ebit = None
+        capital_employed = None
+        
+        # Find EBIT from income statement
+        for item in income_stmt:
+            if latest_year is None and item.get('label'):
+                # Get the first year column (excluding label)
+                years = [k for k in item.keys() if k != 'label']
+                if years:
+                    latest_year = years[0]
+            
+            if item.get('label'):
+                label = item['label'].lower()
+                if any(term in label for term in ['operating profit', 'ebit', 'operating income', 'profit before interest']):
+                    if latest_year and latest_year in item:
+                        value_str = item[latest_year].replace(',', '').replace('₹', '').strip()
+                        try:
+                            ebit = float(value_str)
+                            break
+                        except:
+                            continue
+        
+        # Find Capital Employed from balance sheet
+        total_assets = None
+        current_liabilities = None
+        shareholders_equity = None
+        long_term_debt = None
+        
+        for item in balance_sheet:
+            if item.get('label'):
+                label = item['label'].lower()
+                if latest_year and latest_year in item:
+                    value_str = item[latest_year].replace(',', '').replace('₹', '').strip()
+                    try:
+                        value = float(value_str)
+                        
+                        if any(term in label for term in ['total assets', 'total asset']):
+                            total_assets = value
+                        elif any(term in label for term in ['current liabilities', 'current liability']):
+                            current_liabilities = value
+                        elif any(term in label for term in ['shareholders equity', 'shareholder equity', 'equity']):
+                            shareholders_equity = value
+                        elif any(term in label for term in ['long term debt', 'long-term debt', 'non-current liabilities']):
+                            long_term_debt = value
+                    except:
+                        continue
+        
+        # Calculate Capital Employed using available data
+        if total_assets and current_liabilities:
+            capital_employed = total_assets - current_liabilities
+        elif shareholders_equity and long_term_debt:
+            capital_employed = shareholders_equity + long_term_debt
+        elif shareholders_equity:  # Fallback to just equity
+            capital_employed = shareholders_equity
+        
+        # Calculate ROCE
+        if ebit and capital_employed and capital_employed != 0:
+            roce = (ebit / capital_employed) * 100
+            if -100 < roce < 500:  # Reasonable range
+                return round(roce, 2)
+        
+        return "N/A"
+    except Exception as e:
+        print(f"Error calculating ROCE from statements: {e}")
         return "N/A"
 
 def extract_roe(soup, page_text):
@@ -387,6 +642,43 @@ def extract_roe(soup, page_text):
     except:
         return "N/A"
 
+def get_alternative_sector_data(symbol):
+    """
+    Try to get sector data from alternative sources like NSE
+    """
+    try:
+        # Try NSE website for sector information
+        nse_url = f"https://www.nseindia.com/get-quotes/equity?symbol={symbol}"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+        }
+        
+        response = requests.get(nse_url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, "html.parser")
+            
+            # Look for sector information in NSE page
+            sector_elements = soup.find_all(string=re.compile(r'sector|industry', re.IGNORECASE))
+            for element in sector_elements:
+                parent = element.parent
+                if parent:
+                    # Look for sector value near the sector label
+                    siblings = parent.find_next_siblings()
+                    for sibling in siblings[:3]:  # Check next 3 siblings
+                        text = sibling.get_text().strip()
+                        if (len(text) > 5 and len(text) < 50 and 
+                            not any(word in text.lower() for word in ['nifty', 'sensex', 'index'])):
+                            return text
+        
+        return "N/A"
+    except Exception as e:
+        print(f"Error fetching alternative sector data: {e}")
+        return "N/A"
+
 def get_indian_fundamentals(symbol):
     try:
         url = f"https://www.screener.in/company/{symbol}/consolidated/"
@@ -402,6 +694,18 @@ def get_indian_fundamentals(symbol):
 
         shareholding = extract_shareholding_from_screener(soup)
         valuation_data = get_company_overview_data(symbol)
+        
+        # If sector is still N/A, try alternative sources
+        if valuation_data.get("sector") == "N/A":
+            alt_sector = get_alternative_sector_data(symbol)
+            if alt_sector != "N/A":
+                valuation_data["sector"] = alt_sector
+        
+        # If ROCE is still N/A, try to calculate from financial statements
+        if valuation_data.get("roce") == "N/A":
+            calculated_roce = calculate_roce_from_statements(income_stmt, balance_sheet)
+            if calculated_roce != "N/A":
+                valuation_data["roce"] = calculated_roce
 
         return {
             "symbol": symbol,
@@ -497,7 +801,9 @@ def get_us_fundamentals(symbol):
         ticker = yf.Ticker(symbol)
 
         def df_to_dict(df: pd.DataFrame):
-            return df.fillna(0).astype(float).T.to_dict() if not df.empty else {}
+            if not df.empty:
+                return df.fillna(0).infer_objects(copy=False).astype(float).T.to_dict()
+            return {}
 
         info = ticker.info
         pe_ratio = info.get("trailingPE") or info.get("forwardPE") or "N/A"

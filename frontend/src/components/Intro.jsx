@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
+import SEO from "./SEO.jsx";
 import "./Intro.css"; // Import the CSS file
 
 const Intro = () => {
@@ -273,6 +274,12 @@ const Intro = () => {
 
   return (
     <div className="stock-sage-intro">
+      <SEO
+        title="Stock Sage - AI-Powered Stock Analysis & Trading Signals | Free Stock Market Analysis"
+        description="Get free AI-powered stock analysis, real-time trading signals, and comprehensive fundamentals for Indian (NSE) and US markets. Features sentiment analysis, technical indicators, and options strategies."
+        keywords="free stock analysis, AI trading signals, Indian stocks, US stocks, NSE analysis, stock market, technical analysis, sentiment analysis, options trading, stock fundamentals, real-time signals"
+        url="https://stocksage.app/"
+      />
       {/* Navbar */}
       <nav className="stock-sage-navbar">
         <div className="stock-sage-navbar-container">

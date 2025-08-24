@@ -13,7 +13,6 @@ import time
 from dataclasses import dataclass
 import json
 
-
 warnings.filterwarnings('ignore')
 load_dotenv()
 
@@ -197,149 +196,6 @@ class AdvancedStockAnalyzer:
             support_level=100.0, resistance_level=110.0
         )
     
-    # ===================== SENTIMENT ANALYSIS =====================
-    
-    # def scrape_news(self, symbol: str) -> List[str]:
-    #     """Enhanced news scraping with multiple sources"""
-    #     headlines = []
-        
-    #     # Indian stocks
-    #     if symbol.endswith((".NS", ".BO")):
-    #         headlines.extend(self._scrape_indian_news(symbol))
-    #     else:
-    #         # US stocks
-    #         headlines.extend(self._scrape_us_news(symbol))
-    #         headlines.extend(self._scrape_yahoo_news(symbol))
-        
-    #     return headlines[:10] if headlines else [f"No news available for {symbol}"]
-    
-    # def _scrape_indian_news(self, symbol: str) -> List[str]:
-    #     """Scrape Indian stock news"""
-    #     try:
-    #         base_symbol = symbol.replace(".NS", "").replace(".BO", "")
-    #         sources = [
-    #             f"{base_symbol} site:moneycontrol.com",
-    #             f"{base_symbol} site:economictimes.indiatimes.com",
-    #             f"{base_symbol} site:business-standard.com"
-    #         ]
-            
-    #         headlines = []
-    #         for query in sources:
-    #             try:
-    #                 url = f"https://news.google.com/rss/search?q={query}"
-    #                 response = requests.get(url, timeout=10)
-    #                 response.raise_for_status()
-                    
-    #                 soup = BeautifulSoup(response.content, "xml")
-    #                 items = soup.find_all("item")
-    #                 headlines.extend([item.title.text for item in items[:3]])
-                    
-    #             except Exception as e:
-    #                 continue
-            
-    #         return headlines
-            
-    #     except Exception as e:
-    #         print(f"Error scraping Indian news for {symbol}: {e}")
-    #         return []
-    
-    # def _scrape_us_news(self, symbol: str) -> List[str]:
-    #     """Scrape US stock news via News API"""
-    #     try:
-    #         if not NEWS_API_KEY:
-    #             return []
-                
-    #         response = requests.get(
-    #             f"https://newsapi.org/v2/everything",
-    #             params={
-    #                 "q": f"{symbol} stock",
-    #                 "apiKey": NEWS_API_KEY,
-    #                 "sortBy": "publishedAt",
-    #                 "pageSize": 5,
-    #                 "language": "en"
-    #             },
-    #             timeout=10
-    #         )
-    #         response.raise_for_status()
-            
-    #         news = response.json()
-    #         if 'articles' in news and news['articles']:
-    #             return [article['title'] for article in news['articles']]
-            
-    #         return []
-            
-    #     except Exception as e:
-    #         print(f"Error scraping US news for {symbol}: {e}")
-    #         return []
-    
-    # def _scrape_yahoo_news(self, symbol: str) -> List[str]:
-    #     """Scrape Yahoo Finance news"""
-    #     try:
-    #         stock = yf.Ticker(symbol)
-    #         news = stock.news
-            
-    #         if news:
-    #             return [item['title'] for item in news[:5]]
-            
-    #         return []
-            
-    #     except Exception as e:
-    #         print(f"Error scraping Yahoo news for {symbol}: {e}")
-    #         return []
-    
-    # def analyze_sentiment(self, headlines: List[str]) -> Tuple[List[Dict], float]:
-    #     """Advanced sentiment analysis with aggregation"""
-    #     if not headlines or not HF_TOKEN:
-    #         return [], 0.0
-        
-    #     results = []
-    #     valid_scores = []
-        
-    #     for headline in headlines:
-    #         try:
-    #             response = requests.post(
-    #                 f"https://api-inference.huggingface.co/models/{HF_MODEL}",
-    #                 headers={"Authorization": f"Bearer {HF_TOKEN}"},
-    #                 json={"inputs": headline},
-    #                 timeout=10
-    #             )
-                
-    #             if response.status_code == 200:
-    #                 prediction = response.json()[0][0]
-    #                 label = prediction["label"].upper()
-    #                 score = float(prediction["score"])
-                    
-    #                 # Convert to numerical score (-1 to 1)
-    #                 numerical_score = score if label == "POSITIVE" else -score
-    #                 valid_scores.append(numerical_score)
-                    
-    #                 results.append({
-    #                     "headline": headline,
-    #                     "label": label,
-    #                     "score": score,
-    #                     "numerical_score": numerical_score
-    #                 })
-    #             else:
-    #                 time.sleep(1)  # Rate limit handling
-                    
-    #         except Exception as e:
-    #             print(f"Error analyzing sentiment: {e}")
-    #             results.append({
-    #                 "headline": headline,
-    #                 "label": "NEUTRAL",
-    #                 "score": 0.5,
-    #                 "numerical_score": 0.0
-    #             })
-        
-    #     # Calculate weighted average sentiment
-    #     if valid_scores:
-    #         # Weight recent news higher
-    #         weights = [1.0 + (i * 0.1) for i in range(len(valid_scores))]
-    #         weighted_sentiment = np.average(valid_scores, weights=weights)
-    #     else:
-    #         weighted_sentiment = 0.0
-        
-    #     return results, float(weighted_sentiment)
     
     # ===================== IMPROVED SENTIMENT ANALYSIS =====================
 
@@ -804,67 +660,8 @@ class AdvancedStockAnalyzer:
             market_sentiment="NEUTRAL"
         )
     
-    # ===================== RISK MANAGEMENT =====================
-    
-    # def calculate_position_sizing(self, price: float, volatility: float, account_size: float = 10000) -> Dict[str, float]:
-    #     """Kelly Criterion based position sizing"""
-    #     # Risk per trade (2% of account)
-    #     risk_per_trade = account_size * 0.02
-        
-    #     # ATR-based stop loss (2 * daily volatility)
-    #     daily_volatility = volatility / np.sqrt(252)
-    #     stop_loss_distance = price * daily_volatility * 2
-        
-    #     # Position size calculation
-    #     position_size = risk_per_trade / stop_loss_distance if stop_loss_distance > 0 else 0
-    #     shares = int(position_size / price) if price > 0 else 0
-        
-    #     # Risk-reward targets
-    #     stop_loss = price - stop_loss_distance
-    #     take_profit = price + (stop_loss_distance * 2)  # 2:1 reward:risk
-        
-    #     return {
-    #         "shares": shares,
-    #         "position_value": shares * price,
-    #         "stop_loss": stop_loss,
-    #         "take_profit": take_profit,
-    #         "risk_amount": risk_per_trade,
-    #         "max_loss_percent": (stop_loss_distance / price) * 100 if price > 0 else 0
-    #     }
-    
-    # def calculate_risk_score(self, technical_signals: TechnicalSignals, market_context: MarketContext) -> float:
-    #     """Comprehensive risk assessment (0-100, higher = riskier)"""
-    #     risk_components = []
-        
-    #     # Volatility risk (0-30 points)
-    #     vol_risk = min(technical_signals.volatility * 100, 30)
-    #     risk_components.append(vol_risk)
-        
-    #     # Technical risk (0-25 points)
-    #     tech_risk = 0
-    #     if technical_signals.rsi > 80 or technical_signals.rsi < 20:
-    #         tech_risk += 10  # Extreme RSI
-    #     if abs(technical_signals.bb_position - 0.5) > 0.4:
-    #         tech_risk += 10  # Near BB extremes
-    #     if technical_signals.volume_ratio < 0.5:
-    #         tech_risk += 5   # Low volume
-    #     risk_components.append(tech_risk)
-        
-    #     # Market risk (0-25 points)
-    #     market_risk = 0
-    #     if market_context.volatility_regime == "HIGH":
-    #         market_risk += 15
-    #     if market_context.trend_direction == "BEAR":
-    #         market_risk += 10
-    #     risk_components.append(market_risk)
-        
-    #     # Liquidity risk (0-20 points)
-    #     liquidity_risk = max(0, 20 - technical_signals.volume_ratio * 10)
-    #     risk_components.append(liquidity_risk)
-        
-    #     total_risk = sum(risk_components)
-    #     return min(total_risk, 100)
-    
+   
+
     
     def calculate_position_sizing(self, price: float, volatility: float, signal_type: str, account_size: float = 10000) -> Dict[str, float]:
         """Kelly Criterion based position sizing for both long and short positions"""

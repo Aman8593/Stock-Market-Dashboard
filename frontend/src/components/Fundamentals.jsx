@@ -79,7 +79,43 @@ const Fundamentals = ({ symbol, setSymbol, data, setData, allSymbols }) => {
 
   const renderSummary = () => {
     if (!data) return null;
-    const { company, market, sector, market_cap, pe, roce, roe } = data;
+    const { company, market, sector, market_cap, pe, roce, roe, roa } = data;
+
+    // Format market cap for display
+    const formatMarketCap = (cap) => {
+      if (!cap || cap === "N/A") return "N/A";
+
+      // If it's already formatted (Indian stocks), return as is
+      if (typeof cap === "string") return cap;
+
+      // If it's a number (US stocks), format it
+      if (typeof cap === "number") {
+        if (cap >= 1e12) {
+          return `$${(cap / 1e12).toFixed(2)}T`;
+        } else if (cap >= 1e9) {
+          return `$${(cap / 1e9).toFixed(2)}B`;
+        } else if (cap >= 1e6) {
+          return `$${(cap / 1e6).toFixed(2)}M`;
+        } else {
+          return `$${cap.toLocaleString()}`;
+        }
+      }
+
+      return cap;
+    };
+
+    // Format percentage values
+    const formatPercentage = (value) => {
+      if (!value || value === "N/A") return "N/A";
+      if (typeof value === "number") {
+        return `${(value * 100).toFixed(2)}%`;
+      }
+      return `${value}%`;
+    };
+
+    // Determine which return metric to show based on market
+    const returnMetric = market === "India" ? roce : roa;
+    const returnLabel = market === "India" ? "ROCE" : "ROA";
 
     return (
       <div className="valuation-summary" style={{ marginTop: 30 }}>
@@ -97,16 +133,27 @@ const Fundamentals = ({ symbol, setSymbol, data, setData, allSymbols }) => {
           <strong>Sector:</strong> {sector || "N/A"}
         </p>
         <p>
-          <strong>Market Cap:</strong> {market_cap || "N/A"}
+          <strong>Market Cap:</strong> {formatMarketCap(market_cap)}
         </p>
         <p>
-          <strong>P/E Ratio:</strong> {pe || "N/A"}
+          <strong>P/E Ratio:</strong>{" "}
+          {pe ? (typeof pe === "number" ? pe.toFixed(2) : pe) : "N/A"}
         </p>
         <p>
-          <strong>ROCE:</strong> {roce ? `${roce}%` : "N/A"}
+          <strong>{returnLabel}:</strong>{" "}
+          {returnMetric
+            ? typeof returnMetric === "number" && market === "US"
+              ? formatPercentage(returnMetric)
+              : `${returnMetric}%`
+            : "N/A"}
         </p>
         <p>
-          <strong>ROE:</strong> {roe ? `${roe}%` : "N/A"}
+          <strong>ROE:</strong>{" "}
+          {roe
+            ? typeof roe === "number" && market === "US"
+              ? formatPercentage(roe)
+              : `${roe}%`
+            : "N/A"}
         </p>
       </div>
     );

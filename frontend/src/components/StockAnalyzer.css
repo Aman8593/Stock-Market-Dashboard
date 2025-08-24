@@ -178,19 +178,216 @@
   }
 }
 
+/* Analysis Status Styles */
+.signals-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.signals-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.refresh-button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.refresh-button:hover {
+  background: #0056b3;
+}
+
+.refresh-button:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.last-updated {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+.analysis-status {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border: 1px solid #2196f3;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2196f3, #4caf50);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  animation: progressPulse 2s infinite;
+}
+
+@keyframes progressPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.progress-text {
+  font-weight: bold;
+  color: #2196f3;
+  min-width: 40px;
+  text-align: right;
+}
+
+.status-message {
+  margin: 0;
+  color: #333;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.estimated-time {
+  color: #666;
+  font-size: 12px;
+}
+
+/* No Data State */
+.no-data-container {
+  text-align: center;
+  padding: 40px 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.no-data-container p {
+  margin-bottom: 16px;
+  color: #666;
+  font-size: 16px;
+}
+
+.no-data-container .refresh-button {
+  background: #28a745;
+  padding: 12px 24px;
+  font-size: 16px;
+}
+
+.no-data-container .refresh-button:hover {
+  background: #218838;
+}
+
 @media (max-width: 768px) {
   .analyzer-container {
-    padding: 10px;
+    padding: 0px 10px;
+    overflow-x: hidden;
   }
+
   .markets-grid-container {
-    padding: 0px;
+    padding: 10px;
+    overflow-x: hidden;
   }
+
+  .grid-container {
+    grid-template-columns: 1fr; /* Single column on mobile */
+    gap: 15px;
+  }
+
+  .market-card {
+    padding: 10px;
+    min-width: 0;
+    width: 100%;
+    overflow-x: auto; /* Allow horizontal scroll within card only */
+  }
+
   .input-field {
     width: 100%;
     margin-bottom: 10px;
+    margin-right: 0;
+    box-sizing: border-box;
   }
 
   .button-analyze {
     width: 100%;
+  }
+
+  .market-table-table {
+    font-size: 11px;
+    min-width: 280px; /* Minimum width for table readability */
+  }
+
+  .market-table-th,
+  .market-table-td {
+    padding: 4px 2px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  /* Analysis Status Mobile */
+  .signals-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .signals-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .refresh-button {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .last-updated {
+    font-size: 10px;
+  }
+
+  .analysis-status {
+    padding: 12px;
+  }
+
+  .progress-container {
+    gap: 8px;
+  }
+
+  .status-message {
+    font-size: 12px;
   }
 }

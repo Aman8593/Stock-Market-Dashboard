@@ -8,6 +8,7 @@ import {
 import "./App.css";
 import Home from "./components/Home.jsx";
 import Intro from "./components/Intro.jsx";
+import SEO from "./components/SEO.jsx";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -18,6 +19,7 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <Router>
+      <SEO />
       <Routes>
         <Route path="/" element={<Intro />} />
 

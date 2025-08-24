@@ -1,5 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { analyzeStock, getLiveSignals } from "../api/stockApi";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  analyzeStock,
+  getLiveSignals,
+  getAnalysisStatus,
+  forceAnalysis,
+} from "../api/stockApi";
 import "./StockAnalyzer.css";
 
 const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
@@ -9,36 +14,112 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
     stock: false,
   });
   const [marketData, setMarketData] = useState(null);
+  const [analysisStatus, setAnalysisStatus] = useState({
+    analyzing: false,
+    progress: 0,
+    message: "",
+    estimatedTime: "",
+    lastUpdated: null,
+  });
 
-  // Load market data on component mount and daily
-  useEffect(() => {
-    const fetchMarketData = async () => {
-      try {
-        setLoading((prev) => ({ ...prev, market: true }));
-        const result = await getLiveSignals();
-        setMarketData(result);
+  // Fetch market data with new analysis system
+  const fetchMarketData = useCallback(async (forceRefresh = false) => {
+    try {
+      setLoading((prev) => ({ ...prev, market: true }));
+      setError("");
 
-        localStorage.setItem("marketData", JSON.stringify(result));
-        localStorage.setItem("lastMarketFetch", new Date().toISOString());
-      } catch (err) {
-        console.error("Error fetching market data:", err);
-        setError("Failed to load market signals");
-      } finally {
-        setLoading((prev) => ({ ...prev, market: false }));
+      const result = await getLiveSignals();
+
+      if (result.success) {
+        // Successfully got data
+        console.log("Market data received:", result.data); // Debug log
+
+        // Validate data structure
+        if (result.data && typeof result.data === "object") {
+          setMarketData(result.data);
+          setAnalysisStatus({
+            analyzing: false,
+            progress: 100,
+            message: "Data loaded successfully",
+            estimatedTime: "",
+            lastUpdated: new Date().toISOString(),
+          });
+
+          // Cache the successful result
+          localStorage.setItem("marketData", JSON.stringify(result.data));
+          localStorage.setItem("lastMarketFetch", new Date().toISOString());
+        } else {
+          console.error("Invalid data structure received:", result.data);
+          setError("Invalid data received from server");
+        }
+      } else if (result.analyzing) {
+        // Analysis in progress
+        setAnalysisStatus({
+          analyzing: true,
+          progress: result.progress,
+          message: result.message,
+          estimatedTime: result.estimatedTime,
+          lastUpdated: new Date().toISOString(),
+        });
+
+        // Try to load cached data while analysis is running
+        const cachedData = localStorage.getItem("marketData");
+        if (cachedData && !forceRefresh) {
+          try {
+            const parsedData = JSON.parse(cachedData);
+            setMarketData(parsedData);
+          } catch (err) {
+            console.error("Error parsing cached data:", err);
+          }
+        }
+
+        // Set up retry after specified time
+        const retryDelay = result.checkAgainIn === "30 seconds" ? 30000 : 60000;
+        setTimeout(() => {
+          fetchMarketData();
+        }, retryDelay);
       }
-    };
+    } catch (err) {
+      console.error("Error fetching market data:", err);
+      setError("Failed to load market signals. Please try again.");
+      setAnalysisStatus({
+        analyzing: false,
+        progress: 0,
+        message: "Error loading data",
+        estimatedTime: "",
+        lastUpdated: new Date().toISOString(),
+      });
+    } finally {
+      setLoading((prev) => ({ ...prev, market: false }));
+    }
+  }, []);
 
+  // Load market data on component mount
+  useEffect(() => {
     const lastFetch = localStorage.getItem("lastMarketFetch");
     const cachedData = localStorage.getItem("marketData");
 
-    const shouldRefetch =
-      !lastFetch || new Date() - new Date(lastFetch) > 24 * 60 * 60 * 1000;
+    // Check if we should use cached data (less than 24 hours old)
+    const shouldUseCached =
+      lastFetch &&
+      new Date() - new Date(lastFetch) < 24 * 60 * 60 * 1000 &&
+      cachedData;
 
-    if (!shouldRefetch && cachedData) {
+    if (shouldUseCached) {
       try {
         const parsedData = JSON.parse(cachedData);
         setMarketData(parsedData);
         setLoading((prev) => ({ ...prev, market: false }));
+        setAnalysisStatus({
+          analyzing: false,
+          progress: 100,
+          message: "Loaded from cache",
+          estimatedTime: "",
+          lastUpdated: lastFetch,
+        });
+
+        // Still check for updates in background
+        setTimeout(() => fetchMarketData(), 2000);
       } catch (err) {
         console.error("Error parsing cached market data:", err);
         fetchMarketData();
@@ -46,7 +127,28 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
     } else {
       fetchMarketData();
     }
-  }, []);
+  }, [fetchMarketData]);
+
+  // Force refresh handler
+  const handleForceRefresh = async () => {
+    try {
+      setError("");
+      await forceAnalysis();
+      setAnalysisStatus({
+        analyzing: true,
+        progress: 0,
+        message: "Starting fresh analysis...",
+        estimatedTime: "2-3 minutes",
+        lastUpdated: new Date().toISOString(),
+      });
+
+      // Start polling for results
+      setTimeout(() => fetchMarketData(true), 5000);
+    } catch (err) {
+      console.error("Error forcing analysis:", err);
+      setError("Failed to start analysis. Please try again.");
+    }
+  };
 
   // Load last analyzed stock from localStorage or default to INFY
   useEffect(() => {
@@ -114,14 +216,64 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
     <div className="analyzer-container">
       {/* Market Signals Section */}
       <div className="live-signals-container">
-        <h2>Live Market Signals</h2>
-        {loading.market && (
+        <div className="signals-header">
+          <h2>Live Market Signals</h2>
+          <div className="signals-controls">
+            {!analysisStatus.analyzing && (
+              <button
+                onClick={handleForceRefresh}
+                className="refresh-button"
+                title="Force refresh analysis"
+              >
+                🔄 Refresh
+              </button>
+            )}
+            {analysisStatus.lastUpdated && (
+              <span className="last-updated">
+                Last updated:{" "}
+                {new Date(analysisStatus.lastUpdated).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Analysis Status Display */}
+        {analysisStatus.analyzing && (
+          <div className="analysis-status">
+            <div className="status-content">
+              <div className="progress-container">
+                <div className="progress-bar">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${analysisStatus.progress}%` }}
+                  ></div>
+                </div>
+                <span className="progress-text">
+                  {analysisStatus.progress}%
+                </span>
+              </div>
+              <p className="status-message">
+                📊 {analysisStatus.message}
+                {analysisStatus.estimatedTime && (
+                  <span className="estimated-time">
+                    {" "}
+                    (ETA: {analysisStatus.estimatedTime})
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading.market && !analysisStatus.analyzing && (
           <div className="loader-container">
             <div className="loader"></div>
             <p>Loading market data...</p>
           </div>
         )}
 
+        {/* Market Data Display */}
         {marketData && !loading.market && (
           <div className="markets-grid-container">
             <div className="grid-container">
@@ -129,7 +281,7 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
               <div className="market-table">
                 <h3>Indian Market - 📈 Top Buys</h3>
                 <MarketTable
-                  stocks={marketData.india.buy}
+                  stocks={marketData?.india?.buy || []}
                   currency="₹"
                   loading={loading.market}
                 />
@@ -139,7 +291,7 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
               <div className="market-table">
                 <h3>Indian Market - 📉 Top Sells</h3>
                 <MarketTable
-                  stocks={marketData.india.sell}
+                  stocks={marketData?.india?.sell || []}
                   currency="₹"
                   loading={loading.market}
                 />
@@ -149,7 +301,7 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
               <div className="market-table">
                 <h3>US Market - 📈 Top Buys</h3>
                 <MarketTable
-                  stocks={marketData.us.buy}
+                  stocks={marketData?.us?.buy || []}
                   currency="$"
                   loading={loading.market}
                 />
@@ -159,12 +311,22 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
               <div className="market-table">
                 <h3>US Market - 📉 Top Sells</h3>
                 <MarketTable
-                  stocks={marketData.us.sell}
+                  stocks={marketData?.us?.sell || []}
                   currency="$"
                   loading={loading.market}
                 />
               </div>
             </div>
+          </div>
+        )}
+
+        {/* No Data State */}
+        {!marketData && !loading.market && !analysisStatus.analyzing && (
+          <div className="no-data-container">
+            <p>No market data available. Click refresh to start analysis.</p>
+            <button onClick={handleForceRefresh} className="refresh-button">
+              🔄 Start Analysis
+            </button>
           </div>
         )}
       </div>

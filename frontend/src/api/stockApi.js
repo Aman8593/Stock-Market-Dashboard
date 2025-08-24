@@ -18,6 +18,42 @@ export const getFundamentals = async (symbol) => {
 };
 
 export const getLiveSignals = async () => {
-  const res = await axios.get(`${BASE_URL}/api/v1/live-top-signals`);
+  try {
+    const res = await axios.get(`${BASE_URL}/api/v1/live-top-signals`);
+    return {
+      success: true,
+      data: res.data,
+      status: res.status,
+    };
+  } catch (error) {
+    if (error.response?.status === 202) {
+      // Analysis in progress
+      return {
+        success: false,
+        analyzing: true,
+        progress: error.response.data.detail?.progress || 0,
+        message: error.response.data.detail?.message || "Analysis in progress",
+        estimatedTime:
+          error.response.data.detail?.estimated_time || "2-3 minutes",
+        checkAgainIn:
+          error.response.data.detail?.check_again_in || "30 seconds",
+      };
+    }
+    throw error;
+  }
+};
+
+export const getAnalysisStatus = async () => {
+  const res = await axios.get(`${BASE_URL}/api/v1/analysis-status`);
+  return res.data;
+};
+
+export const forceAnalysis = async () => {
+  const res = await axios.post(`${BASE_URL}/api/v1/force-analysis`);
+  return res.data;
+};
+
+export const checkHealth = async () => {
+  const res = await axios.get(`${BASE_URL}/health`);
   return res.data;
 };

@@ -254,6 +254,15 @@ async def test_auth():
     """Test endpoint to verify API is working"""
     return {"status": "API is working", "message": "Authentication endpoints are available"}
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint - always responds quickly"""
+    return {
+        "status": "healthy",
+        "timestamp": "2025-01-15T12:00:00Z",
+        "message": "Stock Sage API is running"
+    }
+
 # Add live signal endpoints
 app.include_router(signals_router)
 
