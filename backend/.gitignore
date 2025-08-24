@@ -38,3 +38,6 @@ yarn-error.log*
 # OS junk
 Thumbs.db
 Desktop.ini
+
+# Cache directory for live signals
+cache/

@@ -33,9 +33,19 @@ analyzer = AdvancedStockAnalyzer()
 # Thread pool for async operations
 
 executor = ThreadPoolExecutor(max_workers=10)
+
+# CORS configuration for production
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Get CORS origins from environment variable or use defaults
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "https://t77p27qq-5173.inc1.devtunnels.ms"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

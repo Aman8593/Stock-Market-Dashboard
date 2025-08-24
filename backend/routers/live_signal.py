@@ -6,6 +6,8 @@ from stocks import INDIA_STOCKS, US_STOCKS
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import json
+import os
 
 router = APIRouter(prefix="/api/v1", tags=["signals"])
 analyzer = AdvancedStockAnalyzer()
@@ -13,13 +15,120 @@ analyzer = AdvancedStockAnalyzer()
 # Thread pool for heavy operations
 executor = ThreadPoolExecutor(max_workers=2)
 
+# Auto-start analysis on module load
+def auto_start_analysis():
+    """Auto-start analysis when the module is loaded."""
+    def delayed_start():
+        import time
+        time.sleep(5)  # Wait 5 seconds after startup
+        
+        # Check if we need to start analysis
+        should_start = False
+        
+        if signal_cache["data"] is None:
+            print("🚀 No data available - starting initial analysis...")
+            should_start = True
+        elif signal_cache["last_updated"]:
+            age_hours = (datetime.now() - signal_cache["last_updated"]).total_seconds() / 3600
+            if age_hours > 24:
+                print(f"🚀 Data is {age_hours:.1f}h old - starting refresh analysis...")
+                should_start = True
+        
+        if should_start and not signal_cache["is_analyzing"]:
+            start_background_analysis()
+        else:
+            print("✅ Using existing data, no analysis needed at startup")
+    
+    # Start in background thread
+    auto_thread = threading.Thread(target=delayed_start, daemon=True)
+    auto_thread.start()
+
 # In-memory cache with status tracking
 signal_cache = {
     "last_updated": None,
     "data": None,
     "is_analyzing": False,
-    "analysis_progress": 0
+    "analysis_progress": 0,
+    "analysis_count": 0,  # Track number of analyses completed
+    "last_error": None    # Track last error for debugging
 }
+
+# File paths for data persistence
+CACHE_DIR = "cache"
+SIGNALS_CACHE_FILE = os.path.join(CACHE_DIR, "live_signals.json")
+METADATA_CACHE_FILE = os.path.join(CACHE_DIR, "signals_metadata.json")
+
+# Ensure cache directory exists
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+def save_signals_to_file(data, metadata):
+    """Save signals data and metadata to files for persistence."""
+    try:
+        # Save signals data
+        with open(SIGNALS_CACHE_FILE, 'w') as f:
+            json.dump(data, f, indent=2, default=str)
+        
+        # Save metadata
+        with open(METADATA_CACHE_FILE, 'w') as f:
+            json.dump(metadata, f, indent=2, default=str)
+        
+        print(f"💾 Signals data saved to {SIGNALS_CACHE_FILE}")
+    except Exception as e:
+        print(f"❌ Error saving signals to file: {e}")
+
+def load_signals_from_file():
+    """Load previously saved signals data from file."""
+    try:
+        # Load signals data
+        if os.path.exists(SIGNALS_CACHE_FILE):
+            with open(SIGNALS_CACHE_FILE, 'r') as f:
+                data = json.load(f)
+        else:
+            return None, None
+        
+        # Load metadata
+        metadata = {}
+        if os.path.exists(METADATA_CACHE_FILE):
+            with open(METADATA_CACHE_FILE, 'r') as f:
+                metadata = json.load(f)
+        
+        # Convert string datetime back to datetime object
+        if metadata.get("last_updated"):
+            try:
+                metadata["last_updated"] = datetime.fromisoformat(metadata["last_updated"].replace('Z', '+00:00'))
+            except:
+                metadata["last_updated"] = None
+        
+        print(f"📂 Loaded previous signals data from {SIGNALS_CACHE_FILE}")
+        return data, metadata
+        
+    except Exception as e:
+        print(f"❌ Error loading signals from file: {e}")
+        return None, None
+
+def initialize_from_previous_data():
+    """Initialize cache with previously analyzed data if available."""
+    if signal_cache["data"] is None:
+        print("🔧 Attempting to load previous analysis data...")
+        
+        # Try to load from file
+        saved_data, saved_metadata = load_signals_from_file()
+        
+        if saved_data and saved_metadata:
+            # Load previous data
+            signal_cache["data"] = saved_data
+            signal_cache["last_updated"] = saved_metadata.get("last_updated")
+            signal_cache["analysis_count"] = saved_metadata.get("analysis_count", 0)
+            
+            # Calculate age
+            if signal_cache["last_updated"]:
+                age_hours = (datetime.now() - signal_cache["last_updated"]).total_seconds() / 3600
+                print(f"✅ Loaded previous analysis data (Age: {age_hours:.1f}h)")
+            else:
+                print("✅ Loaded previous analysis data (Age: unknown)")
+        else:
+            print("📝 No previous data found, will start fresh analysis")
+            # Don't set any default data - let the analysis run first
 
 
 def analyze_all_stocks_sync() -> Dict[str, Dict[str, List[Dict]]]:
@@ -45,51 +154,50 @@ def analyze_all_stocks_sync() -> Dict[str, Dict[str, List[Dict]]]:
             market_results = [r for r in results if r.symbol in stock_list]
 
             # Filter signals with minimum confidence threshold and sort by confidence
-            buy_candidates = [r for r in market_results if r.signal in ("STRONG_BUY", "BUY") and r.confidence >= 30.0]
-            sell_candidates = [r for r in market_results if r.signal in ("STRONG_SELL", "SELL") and r.confidence >= 30.0]
+            buy_candidates = [r for r in market_results if r.signal in ("STRONG_BUY", "BUY") and r.confidence >= 20.0]
+            sell_candidates = [r for r in market_results if r.signal in ("STRONG_SELL", "SELL") and r.confidence >= 20.0]
             
             buy_signals = sorted(buy_candidates, key=lambda x: x.confidence, reverse=True)[:5]
             sell_signals = sorted(sell_candidates, key=lambda x: x.confidence, reverse=True)[:5]
             
-            # Debug logging for US market (after buy_signals is defined)
-            # if "AAPL" in [r.symbol for r in market_results]:
-            #     print(f"🔍 US Market Analysis Results:")
-            #     print(f"  Total US stocks analyzed: {len(market_results)}")
-            #     print(f"  Buy candidates (≥30% confidence): {len(buy_candidates)}")
-            #     print(f"  Top 10 Buy Candidates:")
-            #     for i, r in enumerate(sorted(buy_candidates, key=lambda x: x.confidence, reverse=True)[:10], 1):
-            #         print(f"    {i}. {r.symbol}: {r.signal} - {r.confidence:.1f}%")
-                
-            #     print(f"  📋 Final Top 8 Selected:")
-            #     for i, r in enumerate(buy_signals, 1):
-            #         print(f"    {i}. {r.symbol}: {r.signal} - {r.confidence:.1f}%")
-                
-            #     # Check specific stocks mentioned
-            #     for stock in ["AAPL", "COST"]:
-            #         stock_result = next((r for r in market_results if r.symbol == stock), None)
-            #         if stock_result:
-            #             in_top_8 = stock_result in buy_signals
-            #             print(f"  📊 {stock}: {stock_result.signal} - {stock_result.confidence:.1f}% (In top 8: {'Yes' if in_top_8 else 'No'})")
-            #         else:
-            #             print(f"  ❌ {stock}: Not found in analysis results")
+            
 
             def format_signal(r):
                 try:
+                    # Ensure all values are properly typed and not NaN/inf
+                    price = r.price if r.price is not None and str(r.price).lower() not in ['nan', 'inf', '-inf'] else None
+                    confidence = r.confidence if r.confidence is not None and str(r.confidence).lower() not in ['nan', 'inf', '-inf'] else None
+                    
+                    # Get technical signals safely
+                    rsi = getattr(r.technical_signals, "rsi", None) if hasattr(r, 'technical_signals') and r.technical_signals else None
+                    change = getattr(r.technical_signals, "price_momentum", None) if hasattr(r, 'technical_signals') and r.technical_signals else None
+                    
+                    # Clean numeric values
+                    if rsi is not None and str(rsi).lower() not in ['nan', 'inf', '-inf']:
+                        rsi = round(float(rsi), 1)
+                    else:
+                        rsi = None
+                        
+                    if change is not None and str(change).lower() not in ['nan', 'inf', '-inf']:
+                        change = round(float(change), 1)
+                    else:
+                        change = None
+                    
                     return {
-                        "symbol": r.symbol,
-                        "price": round(r.price, 2) if r.price is not None else None,
-                        "signal": r.signal,
-                        "confidence": round(r.confidence, 1) if r.confidence is not None else None,
-                        "rsi": round(getattr(r.technical_signals, "rsi", 0.0), 1),
-                        "change": round(getattr(r.technical_signals, "price_momentum", 0.0), 1),
+                        "symbol": str(r.symbol) if r.symbol else "UNKNOWN",
+                        "price": round(float(price), 2) if price is not None else None,
+                        "signal": str(r.signal) if r.signal else "UNKNOWN",
+                        "confidence": round(float(confidence), 1) if confidence is not None else None,
+                        "rsi": rsi,
+                        "change": change,
                         "last_updated": datetime.now().isoformat()
                     }
                 except Exception as e:
-                    print(f"Error formatting signal for {r.symbol}: {e}")
+                    print(f"Error formatting signal for {getattr(r, 'symbol', 'UNKNOWN')}: {e}")
                     return {
-                        "symbol": r.symbol,
+                        "symbol": str(getattr(r, 'symbol', 'UNKNOWN')),
                         "price": None,
-                        "signal": r.signal,
+                        "signal": str(getattr(r, 'signal', 'UNKNOWN')),
                         "confidence": None,
                         "rsi": None,
                         "change": None,
@@ -113,15 +221,27 @@ def analyze_all_stocks_sync() -> Dict[str, Dict[str, List[Dict]]]:
         signal_cache["last_updated"] = datetime.now()
         signal_cache["is_analyzing"] = False
         signal_cache["analysis_progress"] = 100
+        signal_cache["analysis_count"] += 1
+        signal_cache["last_error"] = None
 
-        print(f"✅ Analysis completed in {datetime.now() - start_time}")
+        # Save to file for persistence
+        metadata = {
+            "last_updated": signal_cache["last_updated"],
+            "analysis_count": signal_cache["analysis_count"],
+            "analysis_duration": str(datetime.now() - start_time)
+        }
+        save_signals_to_file(processed_data, metadata)
+
+        print(f"✅ Analysis #{signal_cache['analysis_count']} completed in {datetime.now() - start_time}")
         print(f"📅 Cache updated at: {signal_cache['last_updated']}")
         return processed_data
 
     except Exception as e:
         signal_cache["is_analyzing"] = False
         signal_cache["analysis_progress"] = 0
+        signal_cache["last_error"] = str(e)
         print(f"❌ [ERROR] Stock analysis failed: {str(e)}")
+        # Don't clear existing data on error - keep showing last good data
         raise Exception(f"Stock analysis failed: {str(e)}")
 
 
@@ -154,62 +274,94 @@ def start_background_analysis():
     analysis_thread.start()
 
 
-@router.get("/live-top-signals", response_model=Dict[str, Dict[str, List[Dict]]])
+@router.get("/live-top-signals")
 async def get_live_top_signals():
-    """Return cached stock signals or trigger new analysis if cache is outdated."""
+    """Always return cached data if available, trigger background analysis if needed."""
     try:
         now = datetime.now()
-
-        # Check if analysis is currently running
-        if signal_cache["is_analyzing"]:
-            print(f"📊 Analysis in progress ({signal_cache['analysis_progress']}%)...")
-            
-            # Return cached data if available, otherwise return status
-            if signal_cache["data"] is not None:
-                return {
-                    **signal_cache["data"],
-                    "status": {
-                        "analyzing": True,
-                        "progress": signal_cache["analysis_progress"],
-                        "message": "Analysis in progress, showing cached data"
-                    }
-                }
-            else:
-                raise HTTPException(
-                    status_code=202,  # Accepted, processing
-                    detail={
-                        "message": "Analysis in progress",
-                        "progress": signal_cache["analysis_progress"],
-                        "estimated_time": "2-3 minutes"
-                    }
-                )
-
-        # Check if cache is stale
+        
+        # Check if cache is stale (older than 24 hours)
         cache_is_stale = (
-            signal_cache["data"] is None
-            or signal_cache["last_updated"] is None
+            signal_cache["last_updated"] is None
             or (now - signal_cache["last_updated"]) > timedelta(hours=24)
         )
-
-        if cache_is_stale:
-            print("🔄 Cache is stale or empty. Starting background analysis...")
-            
-            # Start analysis in background (non-blocking)
+        
+        # Start background analysis if cache is stale and not already analyzing
+        if cache_is_stale and not signal_cache["is_analyzing"]:
+            print("🔄 Cache is stale. Starting background analysis...")
             start_background_analysis()
+        
+        # Initialize from previous data if no data exists
+        if signal_cache["data"] is None:
+            initialize_from_previous_data()
+        
+        # Always return cached data if available and valid
+        if signal_cache["data"] is not None and isinstance(signal_cache["data"], dict):
+            cache_age_hours = (
+                (now - signal_cache["last_updated"]).total_seconds() / 3600
+                if signal_cache["last_updated"] else 999
+            )
             
-            # Return immediate response
+            # Ensure all metadata values are JSON serializable
+            try:
+                cache_age_hours = round(float(cache_age_hours), 1) if cache_age_hours != 999 else None
+                analysis_progress = int(signal_cache["analysis_progress"]) if signal_cache["analysis_progress"] is not None else 0
+                analysis_count = int(signal_cache["analysis_count"]) if signal_cache["analysis_count"] is not None else 0
+                
+                response_data = {
+                    **signal_cache["data"],
+                    "metadata": {
+                        "last_updated": signal_cache["last_updated"].isoformat() if signal_cache["last_updated"] else None,
+                        "is_analyzing": bool(signal_cache["is_analyzing"]),
+                        "analysis_progress": analysis_progress,
+                        "cache_age_hours": cache_age_hours,
+                        "analysis_count": analysis_count,
+                        "status": "analyzing" if signal_cache["is_analyzing"] else ("stale" if cache_age_hours and cache_age_hours > 24 else "fresh"),
+                        "message": (
+                            f"Analysis in progress ({analysis_progress}%), showing cached data"
+                            if signal_cache["is_analyzing"]
+                            else f"Data is {cache_age_hours}h old" if cache_age_hours and cache_age_hours > 1
+                            else "Fresh data"
+                        ),
+                        "next_update": "In progress" if signal_cache["is_analyzing"] else "Within 24 hours"
+                    }
+                }
+            except Exception as e:
+                print(f"Error creating response metadata: {e}")
+                # Fallback to basic response
+                response_data = signal_cache["data"]
+            
+            print(f"✅ Returning cached data (Age: {response_data['metadata']['cache_age_hours']:.1f}h, Status: {response_data['metadata']['status']})")
+            return response_data
+        
+        # No cached data available - first time or after error
+        if signal_cache["is_analyzing"]:
+            # Analysis is running but no cached data yet
+            print(f"📊 First-time analysis in progress ({signal_cache['analysis_progress']}%)...")
             raise HTTPException(
                 status_code=202,  # Accepted, processing
                 detail={
-                    "message": "Analysis started in background",
-                    "progress": 0,
+                    "message": "Initial analysis in progress",
+                    "progress": signal_cache["analysis_progress"],
                     "estimated_time": "2-3 minutes",
-                    "check_again_in": "30 seconds"
+                    "check_again_in": "30 seconds",
+                    "is_first_time": True
                 }
             )
-
-        print("✅ Returning cached signal data.")
-        return signal_cache["data"]
+        else:
+            # No data and no analysis running - start analysis
+            print("🔄 No cached data available. Starting initial analysis...")
+            start_background_analysis()
+            raise HTTPException(
+                status_code=202,  # Accepted, processing
+                detail={
+                    "message": "Starting initial analysis",
+                    "progress": 0,
+                    "estimated_time": "2-3 minutes",
+                    "check_again_in": "30 seconds",
+                    "is_first_time": True
+                }
+            )
 
     except HTTPException:
         raise
@@ -252,3 +404,7 @@ async def force_analysis(background_tasks: BackgroundTasks):
         "message": "Analysis started in background",
         "estimated_time": "2-3 minutes"
     }
+
+# Initialize from previous data and auto-start analysis
+initialize_from_previous_data()
+auto_start_analysis()

@@ -36,24 +36,38 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
 
         // Validate data structure
         if (result.data && typeof result.data === "object") {
-          setMarketData(result.data);
+          // Extract metadata if present
+          const metadata = result.data.metadata || {};
+          const marketData = { ...result.data };
+          delete marketData.metadata; // Remove metadata from market data
+
+          setMarketData(marketData);
           setAnalysisStatus({
-            analyzing: false,
-            progress: 100,
-            message: "Data loaded successfully",
-            estimatedTime: "",
-            lastUpdated: new Date().toISOString(),
+            analyzing: metadata.is_analyzing || false,
+            progress: metadata.analysis_progress || 100,
+            message: metadata.message || "Data loaded successfully",
+            estimatedTime: metadata.is_analyzing ? "2-3 minutes" : "",
+            lastUpdated: metadata.last_updated || new Date().toISOString(),
+            cacheAge: metadata.cache_age_hours || 0,
+            status: metadata.status || "ready",
           });
 
           // Cache the successful result
-          localStorage.setItem("marketData", JSON.stringify(result.data));
+          localStorage.setItem("marketData", JSON.stringify(marketData));
           localStorage.setItem("lastMarketFetch", new Date().toISOString());
+
+          // If analysis is still running, set up polling
+          if (metadata.is_analyzing) {
+            setTimeout(() => {
+              fetchMarketData();
+            }, 30000); // Check again in 30 seconds
+          }
         } else {
           console.error("Invalid data structure received:", result.data);
           setError("Invalid data received from server");
         }
       } else if (result.analyzing) {
-        // Analysis in progress
+        // Analysis in progress (first time or no cached data)
         setAnalysisStatus({
           analyzing: true,
           progress: result.progress,
@@ -219,15 +233,6 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
         <div className="signals-header">
           <h2>Live Market Signals</h2>
           <div className="signals-controls">
-            {!analysisStatus.analyzing && (
-              <button
-                onClick={handleForceRefresh}
-                className="refresh-button"
-                title="Force refresh analysis"
-              >
-                🔄 Refresh
-              </button>
-            )}
             {analysisStatus.lastUpdated && (
               <span className="last-updated">
                 Last updated:{" "}
@@ -238,29 +243,46 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
         </div>
 
         {/* Analysis Status Display */}
-        {analysisStatus.analyzing && (
+        {(analysisStatus.analyzing || analysisStatus.cacheAge > 24) && (
           <div className="analysis-status">
             <div className="status-content">
-              <div className="progress-container">
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{ width: `${analysisStatus.progress}%` }}
-                  ></div>
-                </div>
-                <span className="progress-text">
-                  {analysisStatus.progress}%
-                </span>
-              </div>
-              <p className="status-message">
-                📊 {analysisStatus.message}
-                {analysisStatus.estimatedTime && (
-                  <span className="estimated-time">
-                    {" "}
-                    (ETA: {analysisStatus.estimatedTime})
+              {analysisStatus.analyzing && (
+                <div className="progress-container">
+                  <div className="progress-bar">
+                    <div
+                      className="progress-fill"
+                      style={{ width: `${analysisStatus.progress}%` }}
+                    ></div>
+                  </div>
+                  <span className="progress-text">
+                    {analysisStatus.progress}%
                   </span>
+                </div>
+              )}
+              <p className="status-message">
+                {analysisStatus.analyzing ? (
+                  <>
+                    📊 {analysisStatus.message}
+                    {analysisStatus.estimatedTime && (
+                      <span className="estimated-time">
+                        {" "}
+                        (ETA: {analysisStatus.estimatedTime})
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    ⏰ Data is {analysisStatus.cacheAge?.toFixed(1)}h old -
+                    Fresh analysis will start automatically
+                  </>
                 )}
               </p>
+              {analysisStatus.lastUpdated && (
+                <p className="last-updated-detail">
+                  Last updated:{" "}
+                  {new Date(analysisStatus.lastUpdated).toLocaleString()}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -320,13 +342,12 @@ const StockAnalyzer = ({ symbol, setSymbol, data, setData, allSymbols }) => {
           </div>
         )}
 
-        {/* No Data State */}
+        {/* No Data State - This should rarely show now */}
         {!marketData && !loading.market && !analysisStatus.analyzing && (
           <div className="no-data-container">
-            <p>No market data available. Click refresh to start analysis.</p>
-            <button onClick={handleForceRefresh} className="refresh-button">
-              🔄 Start Analysis
-            </button>
+            <p>
+              🔄 Loading market data... Analysis is running in the background.
+            </p>
           </div>
         )}
       </div>
