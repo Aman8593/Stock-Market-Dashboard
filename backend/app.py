@@ -1,5 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import FastAPI, HTTPException, Request
 from stocks import INDIA_STOCKS, US_STOCKS, is_valid_stock
 from fundamentals import get_fundamentals
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,12 +20,9 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Stock Sage API", version="1.0.0")
 
-# Security setup
-security = HTTPBearer()
-
 # Rate limiting storage (in production, use Redis)
 request_counts = defaultdict(list)
-RATE_LIMIT_REQUESTS = 100  # requests per window
+RATE_LIMIT_REQUESTS = 1000  # requests per window (increased)
 RATE_LIMIT_WINDOW = 3600   # 1 hour in seconds
 
 @app.on_event("startup")
@@ -54,8 +50,7 @@ load_dotenv()
 # Get CORS origins from environment variable or use defaults
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,https://stock-market-dashboard-psi.vercel.app").split(",")
 
-# API Key for additional security
-API_KEY = os.getenv("API_KEY", "your-secret-api-key-here")  # Set this in your .env
+# Remove API key requirement
 
 app.add_middleware(
     CORSMiddleware,
@@ -94,37 +89,7 @@ async def rate_limit_middleware(request: Request, call_next):
     response = await call_next(request)
     return response
 
-# Authentication dependency
-async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Verify JWT token from Google OAuth"""
-    try:
-        # For now, just check if token exists
-        # In production, verify the JWT token with Google
-        if not credentials.credentials:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return credentials.credentials
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-# API Key verification
-async def verify_api_key(request: Request):
-    """Verify API key from headers"""
-    api_key = request.headers.get("X-API-Key")
-    if not api_key or api_key != API_KEY:
-        raise HTTPException(status_code=403, detail="Invalid API key")
-    return api_key
-
-# Optional auth for public endpoints (allows both authenticated and unauthenticated)
-async def optional_auth(request: Request):
-    """Optional authentication - allows public access but logs if authenticated"""
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        try:
-            token = auth_header.split(" ")[1]
-            return token
-        except:
-            pass
-    return None
+# No authentication required - public API
 
 def get_full_symbol(symbol: str) -> str:
     """Normalize symbol to include .NS if Indian"""
@@ -197,7 +162,7 @@ def get_stocks():
 #     }
 
 @app.get("/analyze/{symbol}")
-async def analyze_stock(symbol: str, token: str = Depends(optional_auth)):
+async def analyze_stock(symbol: str):
     """
     Main endpoint - All calculations handled in backend
     Frontend can pick whatever data it needs from the response
@@ -311,7 +276,7 @@ async def analyze_stock(symbol: str, token: str = Depends(optional_auth)):
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 @app.get("/fundamentals/{symbol}")
-def fundamentals(symbol: str, token: str = Depends(optional_auth)):
+def fundamentals(symbol: str):
     full_symbol = get_full_symbol(symbol)
 
     if not is_valid_stock(full_symbol):
@@ -332,24 +297,39 @@ async def test_auth():
     """Test endpoint to verify API is working"""
     return {"status": "API is working", "message": "Authentication endpoints are available"}
 
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {"message": "Stock Sage API is running", "status": "healthy"}
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint - always responds quickly"""
+    logger.info("Health check endpoint called")
     return {
         "status": "healthy",
         "timestamp": "2025-01-15T12:00:00Z",
-        "message": "Stock Sage API is running"
+        "message": "Stock Sage API is running",
+        "debug": {
+            "cors_origins": cors_origins
+        }
     }
 
 @app.get("/api-status")
 async def api_status():
     """Check external API status without making actual requests"""
+    try:
+        from fundamentals import fundamentals_cache
+        cache_size = len(fundamentals_cache)
+    except:
+        cache_size = 0
+    
     return {
-        "yahoo_finance": "Rate limited - using cache and fallbacks",
-        "news_api": "Active",
+        "yahoo_finance": "Active with rate limiting",
+        "news_api": "Active", 
         "alpha_vantage": "Active",
-        "cache_size": len(fundamentals_cache) if 'fundamentals_cache' in globals() else 0,
-        "message": "Using intelligent caching to avoid rate limits"
+        "cache_size": cache_size,
+        "message": "Public API - no authentication required"
     }
 
 # Add live signal endpoints

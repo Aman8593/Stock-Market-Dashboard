@@ -2,13 +2,11 @@ import axios from "axios";
 
 // Dynamic base URL - use environment variable in production, localhost in development
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-const API_KEY = import.meta.env.VITE_API_KEY || "stock-sage-secure-key-2025";
 
 // Create axios instance with default headers
 const apiClient = axios.create({
   baseURL: BASE_URL,
   headers: {
-    "X-API-Key": API_KEY,
     "Content-Type": "application/json",
   },
 });
