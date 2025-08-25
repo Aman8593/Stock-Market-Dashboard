@@ -48,13 +48,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get CORS origins from environment variable or use defaults
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,https://stock-market-dashboard-psi.vercel.app").split(",")
+# cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,https://stock-market-dashboard-psi.vercel.app").split(",")
+
+origins = [
+    "*",
+]
 
 # Remove API key requirement
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
