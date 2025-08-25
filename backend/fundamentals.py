@@ -3,6 +3,53 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import re
+import time
+from datetime import datetime, timedelta
+from functools import lru_cache
+
+# Simple in-memory cache for fundamentals data
+fundamentals_cache = {}
+CACHE_DURATION = 3600  # 1 hour in seconds
+
+# Rate limiting for Yahoo Finance requests
+last_yahoo_request = 0
+MIN_REQUEST_INTERVAL = 2  # Minimum 2 seconds between requests
+yahoo_failure_count = 0
+yahoo_circuit_breaker_until = 0
+
+def rate_limited_yahoo_request():
+    """Ensure minimum interval between Yahoo Finance requests"""
+    global last_yahoo_request, yahoo_circuit_breaker_until
+    current_time = time.time()
+    
+    # Check circuit breaker
+    if current_time < yahoo_circuit_breaker_until:
+        remaining = yahoo_circuit_breaker_until - current_time
+        raise Exception(f"Yahoo Finance circuit breaker active for {remaining:.0f} more seconds")
+    
+    time_since_last = current_time - last_yahoo_request
+    
+    if time_since_last < MIN_REQUEST_INTERVAL:
+        sleep_time = MIN_REQUEST_INTERVAL - time_since_last
+        print(f"⏳ Rate limiting: waiting {sleep_time:.1f} seconds")
+        time.sleep(sleep_time)
+    
+    last_yahoo_request = time.time()
+
+def handle_yahoo_failure():
+    """Handle Yahoo Finance API failures with circuit breaker"""
+    global yahoo_failure_count, yahoo_circuit_breaker_until
+    yahoo_failure_count += 1
+    
+    if yahoo_failure_count >= 3:
+        # Open circuit breaker for 10 minutes
+        yahoo_circuit_breaker_until = time.time() + 600
+        print(f"🚨 Yahoo Finance circuit breaker activated for 10 minutes")
+
+def reset_yahoo_failures():
+    """Reset failure count on successful request"""
+    global yahoo_failure_count
+    yahoo_failure_count = 0
 
 def parse_financial_table(soup, section_title):
     try:
@@ -797,18 +844,78 @@ def get_indian_fundamentals(symbol):
 #         }
 
 def get_us_fundamentals(symbol):
+    import time
+    import random
+    
     try:
-        ticker = yf.Ticker(symbol)
+        # Apply rate limiting
+        rate_limited_yahoo_request()
+        
+        # Configure yfinance with session and headers to avoid rate limiting
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+        
+        ticker = yf.Ticker(symbol, session=session)
 
         def df_to_dict(df: pd.DataFrame):
             if not df.empty:
                 return df.fillna(0).infer_objects(copy=False).astype(float).T.to_dict()
             return {}
 
-        info = ticker.info
+        # Try to get info with retry mechanism
+        info = None
+        max_retries = 2  # Reduced retries to avoid long waits
+        for attempt in range(max_retries):
+            try:
+                info = ticker.info
+                reset_yahoo_failures()  # Success, reset failure count
+                break
+            except Exception as e:
+                if "429" in str(e) and attempt < max_retries - 1:
+                    # Rate limited, wait and retry
+                    wait_time = (attempt + 1) * 3  # 3, 6 seconds
+                    print(f"Rate limited, waiting {wait_time} seconds before retry {attempt + 1}")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    handle_yahoo_failure()
+                    raise e
+        
+        if not info:
+            raise Exception("Could not fetch ticker info after retries")
+
         pe_ratio = info.get("trailingPE") or info.get("forwardPE") or "N/A"
         roe = info.get("returnOnEquity") or "N/A"
         roa = info.get("returnOnAssets") or "N/A"
+
+        # Try to get financial data with error handling
+        financials = {}
+        balance_sheet = {}
+        cash_flow = {}
+        investors = []
+        
+        try:
+            financials = df_to_dict(ticker.financials)
+        except:
+            print(f"Could not fetch financials for {symbol}")
+            
+        try:
+            balance_sheet = df_to_dict(ticker.balance_sheet)
+        except:
+            print(f"Could not fetch balance sheet for {symbol}")
+            
+        try:
+            cash_flow = df_to_dict(ticker.cashflow)
+        except:
+            print(f"Could not fetch cash flow for {symbol}")
+            
+        try:
+            if ticker.institutional_holders is not None:
+                investors = ticker.institutional_holders.to_dict(orient='records')
+        except:
+            print(f"Could not fetch institutional holders for {symbol}")
 
         return {
             "symbol": symbol,
@@ -819,17 +926,39 @@ def get_us_fundamentals(symbol):
             "pe": pe_ratio,
             "roe": roe,
             "roa": roa,
-            "income_statement": df_to_dict(ticker.financials),
-            "balance_sheet": df_to_dict(ticker.balance_sheet),
-            "cash_flow": df_to_dict(ticker.cashflow),
-            "investors": ticker.institutional_holders.to_dict(orient='records') if ticker.institutional_holders is not None else [],
+            "income_statement": financials,
+            "balance_sheet": balance_sheet,
+            "cash_flow": cash_flow,
+            "investors": investors,
         }
 
     except Exception as e:
+        error_msg = str(e)
+        if "429" in error_msg:
+            # Try alternative data source or return cached data if available
+            print(f"⚠️ Yahoo Finance rate limited for {symbol}, trying fallback")
+            
+            # Return basic info without detailed financials
+            return {
+                "symbol": symbol,
+                "market": "US",
+                "company": symbol,
+                "sector": "N/A",
+                "market_cap": "N/A",
+                "pe": "N/A",
+                "roe": "N/A",
+                "roa": "N/A",
+                "income_statement": {},
+                "balance_sheet": {},
+                "cash_flow": {},
+                "investors": [],
+                "error": "Rate limit exceeded. Showing basic data only.",
+                "retry_after": 300  # 5 minutes
+            }
         return {
             "symbol": symbol,
             "market": "US",
-            "error": f"Could not fetch US fundamentals: {str(e)}"
+            "error": f"Could not fetch US fundamentals: {error_msg}"
         }
 
 
@@ -862,7 +991,23 @@ def get_us_fundamentals(symbol):
 
 
 def get_fundamentals(symbol: str):
+    # Check cache first
+    cache_key = symbol.upper()
+    current_time = time.time()
+    
+    if cache_key in fundamentals_cache:
+        cached_data, timestamp = fundamentals_cache[cache_key]
+        if current_time - timestamp < CACHE_DURATION:
+            print(f"📋 Using cached fundamentals for {symbol}")
+            return cached_data
+    
+    # Fetch fresh data
     if symbol.upper().endswith(".NS"):
-        return get_indian_fundamentals(symbol.upper().replace(".NS", ""))
+        result = get_indian_fundamentals(symbol.upper().replace(".NS", ""))
     else:
-        return get_us_fundamentals(symbol.upper())
+        result = get_us_fundamentals(symbol.upper())
+    
+    # Cache the result (even if it's an error, to avoid repeated failures)
+    fundamentals_cache[cache_key] = (result, current_time)
+    
+    return result

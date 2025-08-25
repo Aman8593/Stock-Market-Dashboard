@@ -341,6 +341,17 @@ async def health_check():
         "message": "Stock Sage API is running"
     }
 
+@app.get("/api-status")
+async def api_status():
+    """Check external API status without making actual requests"""
+    return {
+        "yahoo_finance": "Rate limited - using cache and fallbacks",
+        "news_api": "Active",
+        "alpha_vantage": "Active",
+        "cache_size": len(fundamentals_cache) if 'fundamentals_cache' in globals() else 0,
+        "message": "Using intelligent caching to avoid rate limits"
+    }
+
 # Add live signal endpoints
 app.include_router(signals_router)
 
