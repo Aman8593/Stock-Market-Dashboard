@@ -68,6 +68,96 @@ class AdvancedStockAnalyzer:
     def __init__(self):
         self.cache = {}
         self.market_data = {}
+        self.last_request_time = 0
+        self.min_request_interval = 2  # Minimum 2 seconds between requests
+    
+    def _fetch_stock_data_with_retry(self, symbol: str, max_retries: int = 3):
+        """Fetch stock data with comprehensive retry logic and rate limiting"""
+        import time
+        import requests
+        
+        # Rate limiting
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+        if time_since_last < self.min_request_interval:
+            sleep_time = self.min_request_interval - time_since_last
+            print(f"Rate limiting: waiting {sleep_time:.1f} seconds")
+            time.sleep(sleep_time)
+        
+        self.last_request_time = time.time()
+        
+        # Try different approaches
+        approaches = [
+            # Approach 1: Standard yfinance
+            lambda: self._fetch_with_standard_yfinance(symbol),
+            # Approach 2: Custom session with headers
+            lambda: self._fetch_with_custom_session(symbol),
+            # Approach 3: Different time periods
+            lambda: self._fetch_with_fallback_periods(symbol),
+        ]
+        
+        for attempt, approach in enumerate(approaches):
+            try:
+                print(f"Attempt {attempt + 1}: Fetching data for {symbol}")
+                hist = approach()
+                if hist is not None and not hist.empty:
+                    print(f"✅ Successfully fetched {len(hist)} days of data for {symbol}")
+                    return hist
+                else:
+                    print(f"❌ No data returned from approach {attempt + 1}")
+            except Exception as e:
+                print(f"❌ Approach {attempt + 1} failed: {str(e)}")
+                if attempt < len(approaches) - 1:
+                    # Wait before next attempt
+                    wait_time = (attempt + 1) * 2
+                    print(f"Waiting {wait_time} seconds before next attempt...")
+                    time.sleep(wait_time)
+        
+        return None
+    
+    def _fetch_with_standard_yfinance(self, symbol: str):
+        """Standard yfinance fetch"""
+        stock = yf.Ticker(symbol)
+        return stock.history(period="5d")
+    
+    def _fetch_with_custom_session(self, symbol: str):
+        """Fetch with custom session and headers"""
+        import requests
+        
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+        })
+        
+        stock = yf.Ticker(symbol, session=session)
+        return stock.history(period="1mo")
+    
+    def _fetch_with_fallback_periods(self, symbol: str):
+        """Try different time periods"""
+        import requests
+        
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        })
+        
+        stock = yf.Ticker(symbol, session=session)
+        
+        # Try different periods
+        periods = ["1d", "5d", "1mo", "3mo"]
+        for period in periods:
+            try:
+                hist = stock.history(period=period)
+                if not hist.empty:
+                    return hist
+            except:
+                continue
+        
+        return None
         
     # ===================== TECHNICAL ANALYSIS =====================
     
@@ -894,12 +984,11 @@ class AdvancedStockAnalyzer:
         try:
             print(f"Analyzing {symbol}...")
             
-            # Get current price
-            stock = yf.Ticker(symbol)
-            hist = stock.history(period="5d")
+            # Get current price with enhanced retry mechanism and rate limiting
+            hist = self._fetch_stock_data_with_retry(symbol)
             
-            if hist.empty:
-                raise Exception("No price data available")
+            if hist is None or hist.empty:
+                raise Exception(f"Unable to fetch price data for {symbol}. Yahoo Finance may be rate limiting or blocking requests from this server.")
             
             current_price = float(hist['Close'].iloc[-1])
             
@@ -961,7 +1050,19 @@ class AdvancedStockAnalyzer:
             return result
             
         except Exception as e:
-            print(f"✗ Error analyzing {symbol}: {str(e)}")
+            error_msg = str(e)
+            print(f"✗ Error analyzing {symbol}: {error_msg}")
+            
+            # Provide more specific error messages
+            if "price data" in error_msg.lower():
+                detailed_error = f"Failed to fetch price data for {symbol}. This is likely due to Yahoo Finance rate limiting or blocking requests from the server IP address. Please try again later or contact support."
+            elif "429" in error_msg:
+                detailed_error = f"Rate limit exceeded when fetching data for {symbol}. Please wait a few minutes before trying again."
+            elif "timeout" in error_msg.lower():
+                detailed_error = f"Request timeout when fetching data for {symbol}. The external data provider may be experiencing issues."
+            else:
+                detailed_error = f"Analysis failed for {symbol}: {error_msg}"
+            
             return SignalResult(
                 symbol=symbol,
                 price=0.0,
@@ -978,9 +1079,12 @@ class AdvancedStockAnalyzer:
                 technical_signals=self._default_technical_signals(),
                 headlines=[f"Error processing {symbol}"],
                 analysis=[],
-                backtest_metrics={"error": str(e)},
-                error=str(e)
+                backtest_metrics={"error": error_msg},
+                error=detailed_error
             )
+    
+
+    
     # ===================== BATCH PROCESSING =====================
     
     def analyze_portfolio(self, symbols: List[str], max_workers: int = 5) -> List[SignalResult]:
