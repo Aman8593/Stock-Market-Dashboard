@@ -15,12 +15,13 @@ const OptionStrategies = () => {
   const [customPremiums, setCustomPremiums] = useState({});
   const [loading, setLoading] = useState(false);
 
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
   // Main GET fetch
   const fetchStrategyData = async (symbol, expiry = "", strike = "") => {
     setLoading(true);
     try {
       const url =
-        `http://localhost:8000/options-strategy-pnl?ticker=${symbol}` +
+        `${BASE_URL}/options-strategy-pnl?ticker=${symbol}` +
         (expiry ? `&expiry=${expiry}` : "") +
         (strike ? `&strike=${strike}` : "");
 
@@ -32,7 +33,6 @@ const OptionStrategies = () => {
       if (!selectedStrike)
         setSelectedStrike(data.selected_strike || data.atm_strike || strike);
       setError(null);
-      // eslint-disable-next-line no-unused-vars
     } catch (err) {
       setStockInfo(null);
       setError("Failed to fetch strategy data. Please check the ticker.");
@@ -40,7 +40,7 @@ const OptionStrategies = () => {
     setLoading(false);
   };
 
-  // Premium POST (custom override) - UPDATED LOGIC
+  // Premium POST (custom override)
   const fetchCustomStrategyData = async (
     symbol,
     expiry,
@@ -49,8 +49,6 @@ const OptionStrategies = () => {
   ) => {
     setLoading(true);
     try {
-      // Updated: build the payload to match backend expectation
-      // { [selectedStrategy]: { buy_premium: ..., sell_premium: ..., ... } }
       const premiums = {};
       strategyLegs.forEach((leg) => {
         premiums[leg.premiumKey] = Number(updatedPremiums[leg.key]);
@@ -60,14 +58,13 @@ const OptionStrategies = () => {
       };
 
       const url =
-        `http://localhost:8000/options-strategy-pnl-custom?ticker=${symbol}` +
+        `${BASE_URL}/options-strategy-pnl-custom?ticker=${symbol}` +
         (expiry ? `&expiry=${expiry}` : "") +
         (strike ? `&strike=${strike}` : "");
 
       const res = await axios.post(url, payload);
       setStockInfo(res.data);
       setError(null);
-      // eslint-disable-next-line no-unused-vars
     } catch (err) {
       setError("Failed to update with custom premiums.");
     }

@@ -660,9 +660,6 @@ class AdvancedStockAnalyzer:
             market_sentiment="NEUTRAL"
         )
     
-   
-
-    
     def calculate_position_sizing(self, price: float, volatility: float, signal_type: str, account_size: float = 10000) -> Dict[str, float]:
         """Kelly Criterion based position sizing for both long and short positions"""
         # Risk per trade (2% of account)

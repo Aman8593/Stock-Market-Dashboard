@@ -2,25 +2,35 @@ import axios from "axios";
 
 // Dynamic base URL - use environment variable in production, localhost in development
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_KEY = import.meta.env.VITE_API_KEY || "stock-sage-secure-key-2025";
 
-export const getStocks = async (market) => {
-  const res = await axios.get(`${BASE_URL}/stocks`);
+// Create axios instance with default headers
+const apiClient = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    "X-API-Key": API_KEY,
+    "Content-Type": "application/json",
+  },
+});
+
+export const getStocks = async () => {
+  const res = await apiClient.get("/stocks");
   return res.data;
 };
 
 export const analyzeStock = async (symbol) => {
-  const res = await axios.get(`${BASE_URL}/analyze/${symbol}`);
+  const res = await apiClient.get(`/analyze/${symbol}`);
   return res.data;
 };
 
 export const getFundamentals = async (symbol) => {
-  const res = await axios.get(`${BASE_URL}/fundamentals/${symbol}`);
+  const res = await apiClient.get(`/fundamentals/${symbol}`);
   return res.data;
 };
 
 export const getLiveSignals = async () => {
   try {
-    const res = await axios.get(`${BASE_URL}/api/v1/live-top-signals`);
+    const res = await apiClient.get("/api/v1/live-top-signals");
     return {
       success: true,
       data: res.data,
@@ -45,16 +55,16 @@ export const getLiveSignals = async () => {
 };
 
 export const getAnalysisStatus = async () => {
-  const res = await axios.get(`${BASE_URL}/api/v1/analysis-status`);
+  const res = await apiClient.get("/api/v1/analysis-status");
   return res.data;
 };
 
 export const forceAnalysis = async () => {
-  const res = await axios.post(`${BASE_URL}/api/v1/force-analysis`);
+  const res = await apiClient.post("/api/v1/force-analysis");
   return res.data;
 };
 
 export const checkHealth = async () => {
-  const res = await axios.get(`${BASE_URL}/health`);
+  const res = await apiClient.get("/health");
   return res.data;
 };

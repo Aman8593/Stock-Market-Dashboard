@@ -34,6 +34,8 @@ const Intro = () => {
 
   const navigate = useNavigate();
 
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
   // Close mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -74,14 +76,17 @@ const Intro = () => {
 
     try {
       console.log("Sending request to backend...");
-      const res = await fetch("http://localhost:8000/google-login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(userObj),
-      });
+      const res = await fetch(
+        `${BASE_URL}/google-login` || "http://localhost:8000/google-login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(userObj),
+        }
+      );
 
       console.log("Response status:", res.status);
 
@@ -182,14 +187,18 @@ const Intro = () => {
         interests: signupData.interests,
       };
 
-      const res = await fetch("http://localhost:8000/complete-profile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(profileData),
-      });
+      const res = await fetch(
+        `${BASE_URL}/complete-profile` ||
+          "http://localhost:8000/complete-profile",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(profileData),
+        }
+      );
 
       console.log("Profile completion response status:", res.status);
 

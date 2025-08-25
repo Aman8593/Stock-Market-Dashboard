@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from stocks import INDIA_STOCKS, US_STOCKS, is_valid_stock
 from fundamentals import get_fundamentals
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,8 @@ from concurrent.futures import Executor, ThreadPoolExecutor
 from routers.live_signal import router as signals_router
 from database import test_db_connection
 import logging
+import time
+from collections import defaultdict
 
 from news_analysis import AdvancedStockAnalyzer
 
@@ -17,6 +20,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Stock Sage API", version="1.0.0")
+
+# Security setup
+security = HTTPBearer()
+
+# Rate limiting storage (in production, use Redis)
+request_counts = defaultdict(list)
+RATE_LIMIT_REQUESTS = 100  # requests per window
+RATE_LIMIT_WINDOW = 3600   # 1 hour in seconds
 
 @app.on_event("startup")
 async def startup_event():
@@ -43,6 +54,9 @@ load_dotenv()
 # Get CORS origins from environment variable or use defaults
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,https://stock-market-dashboard-psi.vercel.app").split(",")
 
+# API Key for additional security
+API_KEY = os.getenv("API_KEY", "your-secret-api-key-here")  # Set this in your .env
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -57,6 +71,60 @@ async def add_security_headers(request, call_next):
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
     response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"  # Changed from require-corp
     return response
+
+# Rate limiting middleware
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    client_ip = request.client.host
+    current_time = time.time()
+    
+    # Clean old requests
+    request_counts[client_ip] = [
+        req_time for req_time in request_counts[client_ip] 
+        if current_time - req_time < RATE_LIMIT_WINDOW
+    ]
+    
+    # Check rate limit
+    if len(request_counts[client_ip]) >= RATE_LIMIT_REQUESTS:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+    # Add current request
+    request_counts[client_ip].append(current_time)
+    
+    response = await call_next(request)
+    return response
+
+# Authentication dependency
+async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Verify JWT token from Google OAuth"""
+    try:
+        # For now, just check if token exists
+        # In production, verify the JWT token with Google
+        if not credentials.credentials:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return credentials.credentials
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# API Key verification
+async def verify_api_key(request: Request):
+    """Verify API key from headers"""
+    api_key = request.headers.get("X-API-Key")
+    if not api_key or api_key != API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+    return api_key
+
+# Optional auth for public endpoints (allows both authenticated and unauthenticated)
+async def optional_auth(request: Request):
+    """Optional authentication - allows public access but logs if authenticated"""
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        try:
+            token = auth_header.split(" ")[1]
+            return token
+        except:
+            pass
+    return None
 
 def get_full_symbol(symbol: str) -> str:
     """Normalize symbol to include .NS if Indian"""
@@ -129,7 +197,7 @@ def get_stocks():
 #     }
 
 @app.get("/analyze/{symbol}")
-async def analyze_stock(symbol: str):
+async def analyze_stock(symbol: str, token: str = Depends(optional_auth)):
     """
     Main endpoint - All calculations handled in backend
     Frontend can pick whatever data it needs from the response
@@ -243,7 +311,7 @@ async def analyze_stock(symbol: str):
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 @app.get("/fundamentals/{symbol}")
-def fundamentals(symbol: str):
+def fundamentals(symbol: str, token: str = Depends(optional_auth)):
     full_symbol = get_full_symbol(symbol)
 
     if not is_valid_stock(full_symbol):
